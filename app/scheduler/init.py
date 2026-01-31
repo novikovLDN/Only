@@ -1,48 +1,36 @@
 """
-Scheduler initialization — AsyncIOScheduler + SQLAlchemyJobStore (PostgreSQL).
+Scheduler initialization — AsyncIOScheduler with in-memory JobStore.
 
-JobStore обеспечивает персистентность jobs между перезапусками.
+Jobs восстанавливаются при startup через setup_scheduler() из jobs.py.
+Без psycopg2 — полностью async архитектура.
 """
 
 import logging
-from typing import Any
 
-from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-
-from app.config import settings
 
 logger = logging.getLogger(__name__)
 
 _scheduler: AsyncIOScheduler | None = None
 
 
-def _get_jobstore_url() -> str:
-    """Sync URL для SQLAlchemyJobStore (postgresql://)."""
-    return settings.database_url.replace("+asyncpg", "")
-
-
 def init_scheduler() -> AsyncIOScheduler:
     """
-    Create and configure scheduler with PostgreSQL JobStore.
+    Create scheduler (in-memory, no JobStore).
     Does not start — call start() explicitly.
     """
     global _scheduler
     if _scheduler is not None:
         return _scheduler
 
-    jobstores = {
-        "default": SQLAlchemyJobStore(url=_get_jobstore_url()),
-    }
     _scheduler = AsyncIOScheduler(
-        jobstores=jobstores,
         job_defaults={
             "coalesce": True,
             "max_instances": 1,
             "misfire_grace_time": 300,
         },
     )
-    logger.info("Scheduler initialized with SQLAlchemyJobStore")
+    logger.info("Scheduler initialized (in-memory)")
     return _scheduler
 
 
