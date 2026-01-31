@@ -6,6 +6,35 @@
 
 ## 1. Типовые инциденты
 
+### 1.0 UndefinedColumnError / Schema drift (CRITICAL)
+
+| | |
+|---|---|
+| **Симптомы** | `asyncpg.exceptions.UndefinedColumnError: column users.notifications_enabled does not exist`, scheduler crashes every 5 min, middleware crashes on every update, bot DOWN |
+| **Причины** | ORM model ahead of DB schema; migration not applied; deploy without alembic upgrade |
+| **Проверка** | `psql $DATABASE_URL -c "SELECT column_name FROM information_schema.columns WHERE table_name='users' AND column_name='notifications_enabled'"` |
+
+**Шаги решения:**
+
+1. **Deploy order (CRITICAL):**
+   - Deploy code with schema guards, middleware fail-safe, scheduler circuit breaker
+   - Run `alembic upgrade head` in production (or let deploy_gate do it)
+   - Restart application
+2. **If deploy gate fails:** fix migration, ensure 007 is applied
+3. **Verification:**
+   - `SELECT notifications_enabled FROM users LIMIT 1;`
+   - Bot responds to `/start`
+   - No CRITICAL logs repeating
+   - Scheduler starts successfully
+
+**Guards in place:**
+- Schema mismatch → DEGRADED mode (scheduler disabled, bot runs with minimal user)
+- Deploy gate: `python scripts/deploy_gate.py` before app start
+- Middleware: minimal in-memory user on schema error
+- Scheduler: circuit breaker on schema error
+
+---
+
 ### 1.1 Database недоступна
 
 | | |
@@ -304,7 +333,21 @@ WHERE provider_payment_id = '<id_from_provider>' AND status = 'pending';
 
 ---
 
-## 5. Полезные команды
+## 5. Production deploy order (schema-safe)
+
+```
+1. Deploy code (with guards, deploy_gate in startCommand)
+2. Start command runs: python scripts/deploy_gate.py && python run.py
+   - deploy_gate: alembic upgrade head; verify current == heads
+   - If mismatch → FAIL DEPLOY (exit 1)
+3. App starts → bootstrap: check migrations, verify schema (notifications_enabled, timezone, tier)
+4. If schema OK → scheduler starts; if mismatch → DEGRADED (bot runs, scheduler disabled)
+5. Observe logs 15 min: NO UndefinedColumnError, scheduler started, bot answers
+```
+
+---
+
+## 6. Полезные команды
 
 ```bash
 # Health
@@ -317,6 +360,10 @@ psql $DATABASE_URL -c "SELECT COUNT(*) FROM users"
 # Миграции
 alembic upgrade head
 alembic current
+alembic heads
+
+# Schema verification
+psql $DATABASE_URL -c "SELECT notifications_enabled FROM users LIMIT 1"
 
 # Логи (Railway)
 railway logs -f

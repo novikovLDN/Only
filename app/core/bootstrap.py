@@ -69,7 +69,7 @@ async def verify_schema() -> bool:
     Verify users table has required columns.
     On mismatch: set degraded mode, DO NOT abort — allow bot with limited functionality.
     """
-    required_columns = {"notifications_enabled", "profile_views_count"}
+    required_columns = {"notifications_enabled", "timezone", "tier"}
     try:
         session_factory = get_async_session_maker()
         async with session_factory() as session:
