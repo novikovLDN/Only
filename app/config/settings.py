@@ -2,6 +2,7 @@
 Application settings loaded from environment.
 """
 
+import os
 from functools import lru_cache
 from typing import Sequence
 
@@ -43,6 +44,17 @@ class Settings(BaseSettings):
     # Monitoring
     sentry_dsn: str = ""
     health_check_port: int = 8080
+
+    @property
+    def http_port(self) -> int:
+        """Port for HTTP server (health). Railway sets PORT; use it when present."""
+        port = os.environ.get("PORT")
+        if port is not None:
+            try:
+                return int(port)
+            except ValueError:
+                pass
+        return self.health_check_port
 
     # Deployment
     railway_environment: str = ""

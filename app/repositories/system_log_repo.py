@@ -2,9 +2,9 @@
 System log repository.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.system_log import SystemLog
@@ -21,7 +21,7 @@ class SystemLogRepository(BaseRepository[SystemLog]):
         self, fingerprint: str, since_minutes: int = 5
     ) -> SystemLog | None:
         """Check if similar alert was sent recently (deduplication)."""
-        since = datetime.utcnow() - timedelta(minutes=since_minutes)
+        since = datetime.now(timezone.utc) - timedelta(minutes=since_minutes)
         result = await self._session.execute(
             select(SystemLog)
             .where(
@@ -35,3 +35,15 @@ class SystemLogRepository(BaseRepository[SystemLog]):
             .limit(1)
         )
         return result.scalar_one_or_none()
+
+    async def get_recent(
+        self, severity: str | None = None, severities: list[str] | None = None, limit: int = 10
+    ) -> list:
+        """Get recent logs, optionally filtered by severity."""
+        q = select(SystemLog).order_by(desc(SystemLog.created_at)).limit(limit)
+        if severity:
+            q = q.where(SystemLog.severity == severity)
+        elif severities:
+            q = q.where(SystemLog.severity.in_(severities))
+        result = await self._session.execute(q)
+        return list(result.scalars().all())

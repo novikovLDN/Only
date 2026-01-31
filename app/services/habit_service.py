@@ -7,7 +7,7 @@ from datetime import date, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.constants import HabitScheduleType
-from app.models.decline_note import DeclineNote
+from app.models.habit_decline_note import HabitDeclineNote
 from app.models.habit import Habit
 from app.models.habit_log import HabitLog
 from app.models.habit_schedule import HabitSchedule
@@ -82,7 +82,7 @@ class HabitService:
         if existing:
             existing.completed = False
             if note or preset:
-                dn = DeclineNote(note=note or preset or "—", preset=preset)
+                dn = HabitDeclineNote(note=note or preset or "—", preset=preset)
                 self._session.add(dn)
                 await self._session.flush()
                 existing.decline_note_id = dn.id
@@ -91,7 +91,7 @@ class HabitService:
             return existing
         decline_note = None
         if note or preset:
-            decline_note = DeclineNote(note=note or preset or "—", preset=preset)
+            decline_note = HabitDeclineNote(note=note or preset or "—", preset=preset)
             self._session.add(decline_note)
             await self._session.flush()
         log = HabitLog(

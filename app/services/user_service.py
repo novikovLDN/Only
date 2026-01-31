@@ -62,7 +62,8 @@ class UserService:
         limit = self.get_habits_limit(user)
         count = await self._habit_repo.count_user_habits(user.id)
         if count >= limit:
-            return False, f"Лимит привычек: {limit}. Улучшите тариф для большего количества."
+            from app.texts import LIMIT_HABITS
+            return False, LIMIT_HABITS.format(limit=limit)
         return True, ""
 
     async def refresh_tier(self, user: User) -> User:

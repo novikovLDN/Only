@@ -6,13 +6,16 @@ from app.models.base import Base, get_async_session_maker, init_db
 from app.models.user import User
 from app.models.habit import Habit
 from app.models.habit_schedule import HabitSchedule
+from app.models.habit_decline_note import HabitDeclineNote
 from app.models.habit_log import HabitLog
-from app.models.decline_note import DeclineNote
 from app.models.subscription import Subscription
 from app.models.payment import Payment
 from app.models.balance import Balance
+from app.models.balance_transaction import BalanceTransaction
 from app.models.referral import Referral
 from app.models.system_log import SystemLog
+from app.models.admin_alert import AdminAlert
+from app.models.analytics_metric import AnalyticsMetric
 
 __all__ = [
     "Base",
@@ -21,11 +24,14 @@ __all__ = [
     "User",
     "Habit",
     "HabitSchedule",
+    "HabitDeclineNote",
     "HabitLog",
-    "DeclineNote",
     "Subscription",
     "Payment",
     "Balance",
+    "BalanceTransaction",
     "Referral",
     "SystemLog",
+    "AdminAlert",
+    "AnalyticsMetric",
 ]

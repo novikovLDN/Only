@@ -1,7 +1,18 @@
 """Payment providers."""
 
-from app.integrations.payments.base import BasePaymentProvider
-from app.integrations.payments.yookassa_provider import YooKassaProvider
-from app.integrations.payments.telegram_stars_provider import TelegramStarsProvider
+from app.integrations.payments.base import (
+    BasePaymentProvider,
+    CreatePaymentRequest,
+    PaymentResult,
+    WebhookPayload,
+)
+from app.integrations.payments.providers import get_provider, get_available_providers
 
-__all__ = ["BasePaymentProvider", "YooKassaProvider", "TelegramStarsProvider"]
+__all__ = [
+    "BasePaymentProvider",
+    "CreatePaymentRequest",
+    "PaymentResult",
+    "WebhookPayload",
+    "get_provider",
+    "get_available_providers",
+]

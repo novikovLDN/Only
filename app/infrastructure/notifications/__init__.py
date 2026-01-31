@@ -1,0 +1,1 @@
+"""Notifications — отправка в Telegram."""

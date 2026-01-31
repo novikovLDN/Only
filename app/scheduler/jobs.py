@@ -1,67 +1,82 @@
 """
-Scheduler jobs — habit reminders, trial/subscription notifications.
+Scheduler jobs — habit reminders, trial, subscription, health check.
+
+Каждый job idempotent: можно безопасно перезапустить.
+Перед отправкой — проверка актуального статуса пользователя.
 """
 
-import asyncio
-from datetime import datetime, timedelta
+import logging
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
-from app.config import settings
-from app.models.base import get_async_session_maker
-from app.scheduler.notifications import (
-    run_habit_reminders,
-    run_trial_notifications,
-    run_subscription_notifications,
+from app.scheduler.init import get_scheduler, init_scheduler, shutdown_scheduler
+from app.scheduler.job_runner import (
+    run_analytics_refresh_job,
+    run_habit_reminders_job,
+    run_health_check_job,
+    run_retention_job,
+    run_subscription_notifications_job,
+    run_subscription_renew_job,
+    run_trial_notifications_job,
+)
+from app.scheduler.registry import (
+    JOB_ANALYTICS_REFRESH,
+    JOB_HABIT_REMINDERS,
+    JOB_HEALTH_CHECK,
+    JOB_RETENTION,
+    JOB_SUBSCRIPTION_NOTIFICATIONS,
+    JOB_SUBSCRIPTION_RENEW,
+    JOB_TRIAL_NOTIFICATIONS,
+    add_job,
 )
 
-
-_scheduler: AsyncIOScheduler | None = None
-
-
-def get_scheduler() -> AsyncIOScheduler:
-    """Get or create scheduler."""
-    global _scheduler
-    if _scheduler is None:
-        _scheduler = AsyncIOScheduler()
-    return _scheduler
+logger = logging.getLogger(__name__)
 
 
 def setup_scheduler(bot) -> None:
-    """Configure and start scheduler."""
-    sched = get_scheduler()
-    # Habit reminders — every 5 minutes check due habits
-    sched.add_job(
-        run_habit_reminders,
+    """Initialize scheduler, register jobs, start."""
+    init_scheduler()
+    add_job(
+        run_habit_reminders_job,
         IntervalTrigger(minutes=5),
-        id="habit_reminders",
-        args=[bot],
-        replace_existing=True,
+        JOB_HABIT_REMINDERS,
+        args=(bot,),
     )
-    # Trial notifications — every hour
-    sched.add_job(
-        run_trial_notifications,
+    add_job(
+        run_trial_notifications_job,
         IntervalTrigger(hours=1),
-        id="trial_notifications",
-        args=[bot],
-        replace_existing=True,
+        JOB_TRIAL_NOTIFICATIONS,
+        args=(bot,),
     )
-    # Subscription expiry — every hour
-    sched.add_job(
-        run_subscription_notifications,
+    add_job(
+        run_subscription_notifications_job,
         IntervalTrigger(hours=1),
-        id="subscription_notifications",
-        args=[bot],
-        replace_existing=True,
+        JOB_SUBSCRIPTION_NOTIFICATIONS,
+        args=(bot,),
     )
+    add_job(
+        run_subscription_renew_job,
+        IntervalTrigger(hours=6),
+        JOB_SUBSCRIPTION_RENEW,
+        args=(bot,),
+    )
+    add_job(
+        run_retention_job,
+        IntervalTrigger(hours=12),
+        JOB_RETENTION,
+        args=(bot,),
+    )
+    add_job(
+        run_health_check_job,
+        IntervalTrigger(minutes=5),
+        JOB_HEALTH_CHECK,
+        args=(bot,),
+    )
+    add_job(
+        run_analytics_refresh_job,
+        IntervalTrigger(hours=1),
+        JOB_ANALYTICS_REFRESH,
+    )
+    sched = get_scheduler()
     sched.start()
-
-
-def shutdown_scheduler() -> None:
-    """Stop scheduler gracefully."""
-    global _scheduler
-    if _scheduler:
-        _scheduler.shutdown(wait=True)
-        _scheduler = None
+    logger.info("Scheduler started with %d jobs", len(sched.get_jobs()))

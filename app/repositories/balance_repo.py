@@ -4,7 +4,7 @@ Balance repository.
 
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.balance import Balance
@@ -21,6 +21,12 @@ class BalanceRepository(BaseRepository[Balance]):
         """Get balance for user."""
         result = await self._session.execute(select(Balance).where(Balance.user_id == user_id))
         return result.scalar_one_or_none()
+
+    async def sum_total(self) -> Decimal:
+        """Total balance across all users."""
+        result = await self._session.execute(select(func.coalesce(func.sum(Balance.amount), 0)))
+        val = result.scalar()
+        return Decimal(str(val)) if val is not None else Decimal("0")
 
     async def get_or_create(self, user_id: int, currency: str = "RUB") -> Balance:
         """Get or create balance for user."""

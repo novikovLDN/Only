@@ -5,7 +5,7 @@ User repository.
 import secrets
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.constants import UserTier
@@ -72,6 +72,28 @@ class UserRepository(BaseRepository[User]):
         )
         await self.add(user)
         return user, True
+
+    async def count_all(self) -> int:
+        """Total users count."""
+        result = await self._session.execute(select(func.count(User.id)))
+        return result.scalar() or 0
+
+    async def count_by_tier(self, tier: str) -> int:
+        """Count users by tier."""
+        result = await self._session.execute(
+            select(func.count(User.id)).where(User.tier == tier)
+        )
+        return result.scalar() or 0
+
+    async def count_created_since_days(self, days: int) -> int:
+        """Count users registered in last N days."""
+        from datetime import timedelta, timezone
+
+        since = datetime.now(timezone.utc) - timedelta(days=days)
+        result = await self._session.execute(
+            select(func.count(User.id)).where(User.created_at >= since)
+        )
+        return result.scalar() or 0
 
     def _generate_referral_code(self) -> str:
         """Generate unique referral code."""

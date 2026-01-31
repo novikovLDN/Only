@@ -4,7 +4,7 @@ Payment repository.
 
 from decimal import Decimal
 
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.payment import Payment
@@ -23,6 +23,23 @@ class PaymentRepository(BaseRepository[Payment]):
             select(Payment).where(Payment.idempotency_key == key)
         )
         return result.scalar_one_or_none()
+
+    async def count_completed(self) -> int:
+        """Count succeeded payments."""
+        result = await self._session.execute(
+            select(func.count(Payment.id)).where(Payment.status == "succeeded")
+        )
+        return result.scalar() or 0
+
+    async def sum_completed(self) -> Decimal:
+        """Sum of succeeded payment amounts."""
+        result = await self._session.execute(
+            select(func.coalesce(func.sum(Payment.amount), 0)).where(
+                Payment.status == "succeeded"
+            )
+        )
+        val = result.scalar()
+        return Decimal(str(val)) if val is not None else Decimal("0")
 
     async def get_by_provider_id(self, provider: str, provider_id: str) -> Payment | None:
         """Get payment by provider's payment ID."""

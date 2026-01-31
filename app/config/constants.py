@@ -60,3 +60,9 @@ SUBSCRIPTION_EXPIRY_OFFSETS = [
     -24,  # -24h
     -3,   # -3h
 ]
+
+# Subscription plans (days)
+SUBSCRIPTION_PLANS = {
+    "monthly": 30,
+    "yearly": 365,
+}

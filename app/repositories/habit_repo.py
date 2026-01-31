@@ -2,7 +2,7 @@
 Habit repository.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,3 +57,47 @@ class HabitRepository(BaseRepository[Habit]):
             )
         )
         return result.scalar_one_or_none()
+
+    async def get_last_activity_date(self, user_id: int) -> date | None:
+        """Last date user completed at least one habit."""
+        result = await self._session.execute(
+            select(func.max(HabitLog.log_date))
+            .join(Habit, Habit.id == HabitLog.habit_id)
+            .where(
+                and_(
+                    Habit.user_id == user_id,
+                    HabitLog.completed == True,
+                )
+            )
+        )
+        return result.scalar()
+
+    async def get_current_streak(self, user_id: int, until_date: date | None = None) -> int:
+        """
+        Consecutive days with at least one completed habit, counting backwards from until_date.
+        Streak = number of consecutive days (including until_date) with activity.
+        """
+        from sqlalchemy import distinct
+
+        end = until_date or date.today()
+        # Get distinct dates user completed any habit, ordered desc
+        result = await self._session.execute(
+            select(distinct(HabitLog.log_date))
+            .join(Habit, Habit.id == HabitLog.habit_id)
+            .where(
+                and_(
+                    Habit.user_id == user_id,
+                    HabitLog.completed == True,
+                    HabitLog.log_date <= end,
+                )
+            )
+            .order_by(HabitLog.log_date.desc())
+            .limit(500)
+        )
+        activity_dates = {r[0] for r in result.fetchall()}
+        streak = 0
+        cursor = end
+        while cursor in activity_dates:
+            streak += 1
+            cursor -= timedelta(days=1)
+        return streak

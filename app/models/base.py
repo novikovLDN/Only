@@ -1,5 +1,7 @@
 """
 Base model and database session setup.
+
+Все datetime — timezone-aware (UTC). PostgreSQL хранит с timezone.
 """
 
 from datetime import datetime
@@ -19,7 +21,10 @@ class Base(DeclarativeBase):
 
 
 class TimestampMixin:
-    """Mixin for created_at/updated_at."""
+    """
+    Mixin для created_at/updated_at.
+    timezone=True — PostgreSQL TIMESTAMPTZ, всегда UTC.
+    """
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -80,7 +85,8 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 async def init_db() -> None:
     """Initialize database (create tables). Called on startup."""
-    get_async_session_maker()  # Ensures _engine is initialized
+    import app.models  # noqa: F401 — ensure all models registered with Base.metadata
+    get_async_session_maker()
     assert _engine is not None
     async with _engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
