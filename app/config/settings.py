@@ -59,6 +59,16 @@ class Settings(BaseSettings):
     # Deployment
     railway_environment: str = ""
 
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def normalize_database_url(cls, v: str | None) -> str:
+        """Ensure postgresql+asyncpg:// for async SQLAlchemy (Railway may provide postgresql://)."""
+        if not v:
+            return "postgresql+asyncpg://postgres:postgres@localhost:5432/habitbot"
+        if v.startswith("postgresql://") and "+asyncpg" not in v:
+            return v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
+
     @field_validator("admin_ids", "alert_chat_id", mode="before")
     @classmethod
     def parse_comma_separated(cls, v: str) -> str:

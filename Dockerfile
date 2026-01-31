@@ -11,4 +11,5 @@ COPY . .
 # Health check
 EXPOSE 8080
 
-CMD ["python", "run.py"]
+# Migrations before app start (uses asyncpg, same as app)
+CMD ["sh", "-c", "alembic upgrade head && python run.py"]
