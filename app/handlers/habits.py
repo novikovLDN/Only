@@ -31,6 +31,7 @@ from app.keyboards.habits import habit_detail_keyboard, habits_list_keyboard
 from app.keyboards.main_menu import habit_reminder_keyboard
 from app.services.habit_service import HabitService
 from app.utils.keyboard import edit_reply_markup_if_changed
+from app.utils.message_lifecycle import send_screen_from_event
 from app.services.user_service import UserService
 from app.texts import (
     HABIT_CONFIRM_PROMPT,
@@ -58,15 +59,29 @@ router = Router(name="habits")
 
 @router.callback_query(F.data.startswith("habit_done:"))
 async def habit_done_cb(callback: CallbackQuery, user, session) -> None:
-    """Mark habit as done."""
+    """Mark habit as done. Check achievements, show reward if new."""
     await callback.answer()
     habit_id = int(callback.data.split(":")[1])
     svc = HabitService(session)
     log = await svc.log_complete(habit_id, user.id)
-    if log:
-        await callback.message.answer(HABIT_DONE_SUCCESS)
-    else:
+    if not log:
         await callback.answer(HABIT_DONE_ERROR, show_alert=True)
+        return
+    from app.services.achievement_service import AchievementService
+    from app.utils.message_lifecycle import send_screen_from_event
+
+    ach_svc = AchievementService(session)
+    new_ach = await ach_svc.check_and_unlock(user)
+    if new_ach:
+        from app.keyboards.profile import achievement_reward_keyboard
+        from app.texts import ACHIEVEMENT_NEW_TITLE, ACHIEVEMENT_REWARD
+        reward_text = f"{ACHIEVEMENT_NEW_TITLE}\n\n{ACHIEVEMENT_REWARD.format(icon=new_ach.icon, title=new_ach.title, description=new_ach.description)}"
+        await send_screen_from_event(
+            callback, user.id, reward_text,
+            reply_markup=achievement_reward_keyboard(),
+        )
+    else:
+        await callback.message.answer(HABIT_DONE_SUCCESS)
 
 
 @router.callback_query(F.data.startswith("habit_skip:"))
@@ -84,42 +99,84 @@ async def habit_skip_cb(callback: CallbackQuery, user, session, state: FSMContex
 
 @router.callback_query(F.data.startswith("habit_decline_preset:"))
 async def habit_decline_preset_cb(callback: CallbackQuery, user, session, state: FSMContext) -> None:
-    """Decline с preset или skip."""
+    """Decline с preset или skip. Streak lost message for free users."""
     await callback.answer()
     preset = callback.data.split(":")[1]
     data = await state.get_data()
     habit_id = data.get(FSM_DECLINE_HABIT_ID)
     await state.clear()
     if habit_id:
+        from app.config.constants import UserTier
+        from app.repositories.habit_repo import HabitRepository
+
+        repo = HabitRepository(session)
+        streak_before = await repo.get_current_streak(user.id)
         svc = HabitService(session)
         if preset == "skip":
             await svc.log_decline(habit_id, user.id)
         else:
             await svc.log_decline(habit_id, user.id, preset=preset)
+        if streak_before >= 1 and user.tier != UserTier.PREMIUM:
+            from app.keyboards.profile import streak_lost_keyboard
+            from app.texts import STREAK_LOST_FREE
+            from app.utils.message_lifecycle import send_screen_from_event
+            await send_screen_from_event(
+                callback, user.id, STREAK_LOST_FREE,
+                reply_markup=streak_lost_keyboard(),
+            )
+            return
     await callback.message.answer(HABIT_DECLINE_RECORDED)
 
 
 @router.message(HabitDeclineFSM.adding_note, F.text == "/skip")
 async def habit_decline_skip(message: Message, user, session, state: FSMContext) -> None:
-    """Пропуск без комментария."""
+    """Пропуск без комментария. Streak lost for free users."""
     data = await state.get_data()
     habit_id = data.get(FSM_DECLINE_HABIT_ID)
     await state.clear()
     if habit_id:
+        from app.config.constants import UserTier
+        from app.repositories.habit_repo import HabitRepository
+
+        repo = HabitRepository(session)
+        streak_before = await repo.get_current_streak(user.id)
         svc = HabitService(session)
         await svc.log_decline(habit_id, user.id)
+        if streak_before >= 1 and user.tier != UserTier.PREMIUM:
+            from app.keyboards.profile import streak_lost_keyboard
+            from app.texts import STREAK_LOST_FREE
+            from app.utils.message_lifecycle import send_screen_from_event
+            await send_screen_from_event(
+                message, user.id, STREAK_LOST_FREE,
+                reply_markup=streak_lost_keyboard(),
+            )
+            return
     await message.answer(HABIT_DECLINE_RECORDED)
 
 
 @router.message(HabitDeclineFSM.adding_note, F.text)
 async def habit_decline_with_text(message: Message, user, session, state: FSMContext) -> None:
-    """Decline с произвольным текстом."""
+    """Decline с произвольным текстом. Streak lost for free users."""
     data = await state.get_data()
     habit_id = data.get(FSM_DECLINE_HABIT_ID)
     await state.clear()
     if habit_id and message.text:
+        from app.config.constants import UserTier
+        from app.repositories.habit_repo import HabitRepository
+
+        repo = HabitRepository(session)
+        streak_before = await repo.get_current_streak(user.id)
         svc = HabitService(session)
         await svc.log_decline(habit_id, user.id, note=message.text[:300])
+        if streak_before >= 1 and user.tier != UserTier.PREMIUM:
+            from app.keyboards.profile import streak_lost_keyboard
+            from app.texts import STREAK_LOST_FREE
+            from app.utils.message_lifecycle import send_screen_from_event
+            await send_screen_from_event(
+                message, user.id, STREAK_LOST_FREE,
+                reply_markup=streak_lost_keyboard(),
+            )
+            return
     await message.answer(HABIT_DECLINE_RECORDED)
 
 
@@ -134,7 +191,7 @@ async def habit_select_cb(callback: CallbackQuery, user, session) -> None:
     repo = HabitRepository(session)
     habit = await repo.get_with_schedules(habit_id, user.id)
     if not habit:
-        await callback.message.answer(HABIT_NOT_FOUND)
+        await send_screen_from_event(callback, user.id, HABIT_NOT_FOUND)
         return
     lines = [f"{habit.emoji or '✅'} <b>{habit.name}</b>"]
     if habit.description:
@@ -153,7 +210,10 @@ async def habit_select_cb(callback: CallbackQuery, user, session) -> None:
             times_str = ", ".join(sorted(set(times_list)))
             lines.append(f"Время: {times_str}")
     text = "\n\n".join(lines)
-    await callback.message.answer(text, reply_markup=habit_detail_keyboard(habit.id))
+    await send_screen_from_event(
+        callback, user.id, text,
+        reply_markup=habit_detail_keyboard(habit.id),
+    )
 
 
 # --- Habit Create FSM ---
@@ -311,6 +371,20 @@ async def habit_confirm_cb(callback: CallbackQuery, user, session, state: FSMCon
         days_of_week=days_str,
     )
     if habit:
-        await callback.message.answer(HABIT_CREATED.format(name=name))
+        from app.services.achievement_service import AchievementService
+        from app.utils.message_lifecycle import send_screen_from_event
+
+        ach_svc = AchievementService(session)
+        new_ach = await ach_svc.check_and_unlock(user)
+        if new_ach:
+            from app.keyboards.profile import achievement_reward_keyboard
+            from app.texts import ACHIEVEMENT_NEW_TITLE, ACHIEVEMENT_REWARD
+            reward_text = f"{ACHIEVEMENT_NEW_TITLE}\n\n{ACHIEVEMENT_REWARD.format(icon=new_ach.icon, title=new_ach.title, description=new_ach.description)}"
+            await send_screen_from_event(
+                callback, user.id, reward_text,
+                reply_markup=achievement_reward_keyboard(),
+            )
+        else:
+            await callback.message.answer(HABIT_CREATED.format(name=name))
     else:
         await callback.message.answer(HABIT_CREATE_FAILED)

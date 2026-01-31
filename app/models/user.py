@@ -91,6 +91,38 @@ class User(Base, TimestampMixin):
         nullable=True,
         comment="Последний отпразднованный streak (7, 14, 30...)",
     )
+    notifications_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+        comment="Включены ли напоминания",
+    )
+    last_profile_quote_index: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="Индекс последней показанной цитаты в профиле",
+    )
+    last_insight_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Когда последний раз показан инсайт",
+    )
+    last_insight_id: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="ID последнего показанного инсайта (не повторять 24ч)",
+    )
+    profile_views_count: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        nullable=False,
+        comment="Счётчик заходов в профиль (для paywall)",
+    )
+    last_paywall_shown_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Когда последний раз показывался paywall (не чаще 1/24ч)",
+    )
 
     # Relationships
     habits = relationship("Habit", back_populates="user", cascade="all, delete-orphan")
@@ -100,6 +132,11 @@ class User(Base, TimestampMixin):
         "Referral",
         foreign_keys="Referral.referrer_id",
         back_populates="referrer",
+    )
+    user_achievements = relationship(
+        "UserAchievement",
+        back_populates="user",
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:

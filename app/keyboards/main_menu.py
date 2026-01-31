@@ -9,6 +9,7 @@ def main_menu_keyboard() -> ReplyKeyboardMarkup:
     """Main reply keyboard."""
     return ReplyKeyboardMarkup(
         keyboard=[
+            [KeyboardButton(text="📊 Мой профиль")],
             [KeyboardButton(text="📋 Мои привычки"), KeyboardButton(text="➕ Добавить привычку")],
             [KeyboardButton(text="⚙️ Настройки"), KeyboardButton(text="💳 Баланс")],
             [KeyboardButton(text="👥 Рефералы")],

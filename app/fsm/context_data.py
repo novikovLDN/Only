@@ -23,3 +23,6 @@ FSM_SUB_PROVIDER = "provider"
 # BalanceFSM
 FSM_BALANCE_AMOUNT = "amount"
 FSM_BALANCE_PROVIDER = "provider"
+
+# SettingsFSM
+FSM_SETTINGS_REGION = "region"

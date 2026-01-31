@@ -19,9 +19,10 @@ router = Router(name="payments")
 # --- Balance FSM (skeleton) ---
 
 @router.callback_query(F.data == "balance_topup")
-async def balance_topup_start(callback: CallbackQuery, state: FSMContext) -> None:
+async def balance_topup_start(callback: CallbackQuery, user, state: FSMContext) -> None:
     """Старт пополнения баланса (из баланса)."""
     await callback.answer()
     await state.clear()
     await state.set_state(BalanceFSM.choosing_amount)
-    await callback.message.answer(BALANCE_TOPUP_COMING)
+    from app.utils.message_lifecycle import send_screen_from_event
+    await send_screen_from_event(callback, user.id, BALANCE_TOPUP_COMING)

@@ -36,6 +36,15 @@ class PaymentType(StrEnum):
     SUBSCRIPTION = "subscription"
 
 
+class AchievementConditionType(StrEnum):
+    """Achievement unlock condition."""
+
+    CREATED_HABITS = "created_habits"
+    STREAK = "streak"
+    COMPLETED_HABITS = "completed_habits"
+    NO_SKIPS_7_DAYS = "no_skips_7_days"
+
+
 class AlertSeverity(StrEnum):
     """Severity for monitoring alerts."""
 

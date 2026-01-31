@@ -49,8 +49,10 @@ class BalanceFSM(StatesGroup):
 class SettingsFSM(StatesGroup):
     """Настройки."""
 
-    waiting_timezone = State()
-    waiting_notification_time = State()
+    choosing_timezone_method = State()
+    choosing_region = State()
+    choosing_timezone_from_list = State()
+    waiting_timezone_input = State()
 
 
 class HabitEditFSM(StatesGroup):

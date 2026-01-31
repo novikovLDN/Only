@@ -16,6 +16,8 @@ from app.models.referral import Referral
 from app.models.system_log import SystemLog
 from app.models.admin_alert import AdminAlert
 from app.models.analytics_metric import AnalyticsMetric
+from app.models.achievement import Achievement
+from app.models.user_achievement import UserAchievement
 
 __all__ = [
     "Base",
@@ -34,4 +36,6 @@ __all__ = [
     "SystemLog",
     "AdminAlert",
     "AnalyticsMetric",
+    "Achievement",
+    "UserAchievement",
 ]

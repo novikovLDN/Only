@@ -66,6 +66,9 @@ async def run_habit_reminders_job(bot: Bot) -> None:
             sent = 0
             for sched, habit, user in rows:
                 try:
+                    if not getattr(user, "notifications_enabled", True):
+                        log_job_skip("habit_reminders", "notifications_disabled", user_id=user.id)
+                        continue
                     if not _should_notify_user(user):
                         log_job_skip("habit_reminders", "user_blocked", user_id=user.id)
                         continue
