@@ -39,7 +39,7 @@ def upgrade() -> None:
     columns_to_add = [
         ("last_inactivity_reminder_at", sa.Column("last_inactivity_reminder_at", sa.DateTime(timezone=True), nullable=True)),
         ("last_streak_milestone", sa.Column("last_streak_milestone", sa.Integer(), nullable=True)),
-        ("notifications_enabled", sa.Column("notifications_enabled", sa.Boolean(), nullable=False, server_default="true")),
+        ("notifications_enabled", sa.Column("notifications_enabled", sa.Boolean(), nullable=False, server_default=sa.true())),
         ("last_profile_quote_index", sa.Column("last_profile_quote_index", sa.Integer(), nullable=True)),
         ("last_insight_at", sa.Column("last_insight_at", sa.DateTime(timezone=True), nullable=True)),
         ("last_insight_id", sa.Column("last_insight_id", sa.Integer(), nullable=True)),

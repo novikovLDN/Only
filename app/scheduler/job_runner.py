@@ -1,5 +1,8 @@
 """
 Job runners — idempotent wrappers с проверкой статуса и логированием.
+
+Schema drift guard: catch ProgrammingError/UndefinedColumnError, log once, skip.
+Prevents infinite crash loop when DB schema is behind ORM.
 """
 
 import logging
@@ -7,8 +10,23 @@ from datetime import datetime, timezone
 
 from aiogram import Bot
 from sqlalchemy import select
+from sqlalchemy.exc import ProgrammingError
 
 from app.config.constants import UserTier
+
+try:
+    import asyncpg
+    _SCHEMA_ERR = (ProgrammingError, asyncpg.exceptions.UndefinedColumnError)
+except ImportError:
+    _SCHEMA_ERR = (ProgrammingError,)
+
+
+def _is_schema_error(exc: BaseException) -> bool:
+    """Detect DB schema mismatch (missing column)."""
+    if isinstance(exc, _SCHEMA_ERR):
+        return True
+    msg = str(exc).lower()
+    return "undefinedcolumn" in msg or "does not exist" in msg
 from app.models.base import get_async_session_maker
 from app.models.habit import Habit
 from app.models.habit_schedule import HabitSchedule
@@ -49,19 +67,29 @@ def _user_has_active_access(user: User, sub: Subscription | None) -> bool:  # no
 async def run_habit_reminders_job(bot: Bot) -> None:
     """
     Idempotent: проверяем время в user timezone, статус пользователя.
+    Schema drift: catch UndefinedColumnError, log once, skip execution.
     """
     async with job_execution_log("habit_reminders"):
         session_factory = get_async_session_maker()
         async with session_factory() as session:
-            now_utc = utc_now()
-            result = await session.execute(
-                select(HabitSchedule, Habit, User)
-                .join(Habit, Habit.id == HabitSchedule.habit_id)
-                .join(User, User.id == Habit.user_id)
-                .where(HabitSchedule.is_enabled == True)
-                .where(Habit.is_active == True)
-            )
-            rows = result.all()
+            try:
+                now_utc = utc_now()
+                result = await session.execute(
+                    select(HabitSchedule, Habit, User)
+                    .join(Habit, Habit.id == HabitSchedule.habit_id)
+                    .join(User, User.id == Habit.user_id)
+                    .where(HabitSchedule.is_enabled == True)
+                    .where(Habit.is_active == True)
+                )
+                rows = result.all()
+            except _SCHEMA_ERR as e:
+                if _is_schema_error(e):
+                    logger.critical(
+                        "habit_reminders: schema drift — skip. Run: alembic upgrade head. %s",
+                        e,
+                    )
+                return
+
             notifier = NotificationService(bot)
             sent = 0
             for sched, habit, user in rows:
@@ -92,17 +120,23 @@ async def run_habit_reminders_job(bot: Bot) -> None:
 async def run_trial_notifications_job(bot: Bot) -> None:
     """
     Idempotent: проверяем актуальный tier, trial_ends_at перед отправкой.
+    Schema drift: skip on UndefinedColumnError.
     """
     async with job_execution_log("trial_notifications"):
         session_factory = get_async_session_maker()
         async with session_factory() as session:
-            now = utc_now()
-            result = await session.execute(
-                select(User)
-                .where(User.tier == UserTier.TRIAL)
-                .where(User.trial_ends_at.isnot(None))
-            )
-            users = result.scalars().all()
+            try:
+                now = utc_now()
+                result = await session.execute(
+                    select(User)
+                    .where(User.tier == UserTier.TRIAL)
+                    .where(User.trial_ends_at.isnot(None))
+                )
+                users = result.scalars().all()
+            except _SCHEMA_ERR as e:
+                if _is_schema_error(e):
+                    logger.critical("trial_notifications: schema drift — skip. %s", e)
+                return
             notifier = NotificationService(bot)
             sent = 0
             for user in users:
@@ -133,16 +167,22 @@ async def run_trial_notifications_job(bot: Bot) -> None:
 async def run_subscription_notifications_job(bot: Bot) -> None:
     """
     Idempotent: проверяем subscription.is_active, expires_at.
+    Schema drift: skip on UndefinedColumnError.
     """
     async with job_execution_log("subscription_notifications"):
         session_factory = get_async_session_maker()
         async with session_factory() as session:
-            result = await session.execute(
-                select(Subscription, User)
-                .join(User, User.id == Subscription.user_id)
-                .where(Subscription.is_active == True)
-            )
-            rows = result.all()
+            try:
+                result = await session.execute(
+                    select(Subscription, User)
+                    .join(User, User.id == Subscription.user_id)
+                    .where(Subscription.is_active == True)
+                )
+                rows = result.all()
+            except _SCHEMA_ERR as e:
+                if _is_schema_error(e):
+                    logger.critical("subscription_notifications: schema drift — skip. %s", e)
+                return
             notifier = NotificationService(bot)
             now = utc_now()
             sent = 0
