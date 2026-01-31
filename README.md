@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # HabitBot — Telegram-бот для отслеживания привычек
 
 Production-ready бот на Python 3.12, aiogram 3.x, PostgreSQL.
@@ -80,3 +81,6 @@ app/
 - **Redis для FSM**: при масштабировании замените MemoryStorage на RedisStorage
 - **Scheduler**: один инстанс; для нескольких — Celery Beat или аналоги
 - **Idempotency**: все платежные webhook проверяют idempotency_key
+=======
+# Only
+>>>>>>> 6f004eca89a26213ac2df16f3511f3c7246271b2
