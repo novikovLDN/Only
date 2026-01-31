@@ -1,13 +1,17 @@
 """
 User context middleware — inject user and session into handler data.
+
+On schema error: log CRITICAL, alert admin, reply to user gracefully.
+DO NOT propagate raw DB errors — convert to controlled handling.
 """
 
 import logging
 
-from aiogram import BaseMiddleware
+from aiogram import BaseMiddleware, Bot
 from aiogram.types import Message, CallbackQuery, TelegramObject
 from sqlalchemy.exc import ProgrammingError
 
+from app.config import settings
 from app.models.base import get_async_session_maker
 from app.services.user_service import UserService
 
@@ -15,14 +19,16 @@ logger = logging.getLogger(__name__)
 
 try:
     import asyncpg
-    _ASYNCPG_EXC = (asyncpg.exceptions.UndefinedColumnError, asyncpg.exceptions.PostgresError)
+    _ASYNCPG_EXC = (asyncpg.exceptions.UndefinedColumnError,)
 except ImportError:
     _ASYNCPG_EXC = ()
+
+SCHEMA_ERROR_USER_MESSAGE = "⚠️ Система обновляется, попробуйте через минуту."
 
 
 def _is_schema_error(exc: BaseException) -> bool:
     """Check if error indicates DB schema mismatch (missing column, etc)."""
-    if isinstance(exc, _ASYNCPG_EXC) and "column" in str(exc).lower():
+    if isinstance(exc, _ASYNCPG_EXC):
         return True
     msg = str(exc).lower()
     if "undefinedcolumn" in msg or "does not exist" in msg or ("column" in msg and "exist" in msg):
@@ -30,6 +36,34 @@ def _is_schema_error(exc: BaseException) -> bool:
     if hasattr(exc, "__cause__") and exc.__cause__:
         return _is_schema_error(exc.__cause__)
     return False
+
+
+async def _send_schema_error_alert(bot: Bot, exc: BaseException) -> None:
+    """Send CRITICAL alert to admin."""
+    chat_id = getattr(settings, "alert_chat_id_int", None) or settings.alert_chat_id
+    try:
+        aid = int(chat_id) if chat_id else 6214188086
+        text = (
+            f"🚨 [CRITICAL] DB Schema Mismatch\n"
+            f"Run: alembic upgrade head\n"
+            f"Error: {str(exc)[:300]}"
+        )
+        await bot.send_message(chat_id=aid, text=text)
+    except Exception as ae:
+        logger.warning("Failed to send admin alert: %s", ae)
+
+
+async def _reply_to_user(event: TelegramObject, text: str, bot: Bot) -> None:
+    """Send user-facing message on schema error."""
+    try:
+        if isinstance(event, Message):
+            await event.answer(text)
+        elif isinstance(event, CallbackQuery):
+            await event.answer()
+            if event.message:
+                await event.message.answer(text)
+    except Exception as e:
+        logger.warning("Failed to reply to user: %s", e)
 
 
 class UserContextMiddleware(BaseMiddleware):
@@ -84,4 +118,10 @@ class UserContextMiddleware(BaseMiddleware):
                         e,
                         exc_info=True,
                     )
+                    from app.core.bot_instance import get_bot
+                    bot = getattr(event, "bot", None) or data.get("bot") or get_bot()
+                    if bot:
+                        await _send_schema_error_alert(bot, e)
+                        await _reply_to_user(event, SCHEMA_ERROR_USER_MESSAGE, bot)
+                    return
                 raise

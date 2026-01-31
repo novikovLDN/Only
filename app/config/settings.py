@@ -56,8 +56,9 @@ class Settings(BaseSettings):
                 pass
         return self.health_check_port
 
-    # Deployment
+    # Deployment (Railway: set scale=1, BOT_INSTANCE_ROLE=primary)
     railway_environment: str = ""
+    bot_instance_role: str = ""  # "primary" = may run; other/no-value = primary allowed
 
     @field_validator("database_url", mode="before")
     @classmethod

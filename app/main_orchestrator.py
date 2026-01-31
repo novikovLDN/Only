@@ -42,16 +42,29 @@ _health_runner = None
 
 async def on_startup(bot: Bot) -> None:
     """
-    Startup: health server → db → scheduler.
+    Startup sequence (strict order):
+    1. Bootstrap: migrations, schema, instance role
+    2. DB init
+    3. Health server (Railway)
+    4. Scheduler
 
-    Health server первым — Railway может проверять /health до готовности
-    остальных компонентов (получит 503, затем 200).
+    If ANY step fails → bot must NOT poll Telegram.
     """
     global _health_runner
 
     logger.info("Starting...")
 
-    # 1. Health server (Railway)
+    # 1. Bootstrap (fail fast)
+    from app.core.bootstrap import bootstrap
+    if not await bootstrap():
+        logger.critical("Bootstrap failed — aborting startup")
+        raise RuntimeError("Bootstrap failed: migrations/schema/instance check")
+
+    # 2. Database
+    await init_db()
+    logger.info("Database ready")
+
+    # 3. Health server (Railway)
     port = settings.http_port
     _health_runner = await start_health_server(
         port=port,
@@ -59,11 +72,7 @@ async def on_startup(bot: Bot) -> None:
     )
     logger.info("Health server on port %d", port)
 
-    # 2. Database
-    await init_db()
-    logger.info("Database ready")
-
-    # 3. Scheduler
+    # 4. Scheduler (after schema verified)
     setup_scheduler(bot)
     logger.info("Scheduler started")
 
@@ -97,6 +106,8 @@ def main() -> None:
         token=settings.bot_token,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
+    from app.core.bot_instance import set_bot
+    set_bot(bot)
     dp = Dispatcher(storage=storage)
 
     # Middlewares

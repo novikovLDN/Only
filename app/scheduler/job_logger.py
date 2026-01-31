@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 async def job_execution_log(job_id: str) -> AsyncGenerator[None, None]:
     """
     Context manager: log start, duration, success/error.
+    NEVER re-raise: scheduler must survive job failures.
     """
     start = time.monotonic()
     logger.info("Job started: %s", job_id)
@@ -24,7 +25,7 @@ async def job_execution_log(job_id: str) -> AsyncGenerator[None, None]:
     except Exception as e:
         elapsed = time.monotonic() - start
         logger.exception("Job failed: %s (%.2fs): %s", job_id, elapsed, e)
-        raise
+        # Do NOT raise — scheduler must not crash
 
 
 def log_job_skip(job_id: str, reason: str, **kwargs: str | int) -> None:
