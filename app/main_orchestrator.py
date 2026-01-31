@@ -5,12 +5,16 @@ Entrypoint-оркестратор.
 Управляет lifecycle: startup (health server, db, scheduler) → polling → shutdown.
 
 Бизнес-логика не выполняется здесь — только сборка и запуск.
+
+Railway: ensure single instance (scale=1). Multiple instances cause
+TelegramConflictError (only one getUpdates allowed per bot token).
 """
 
 import logging
 import sys
 
 from aiogram import Bot, Dispatcher
+from aiogram.exceptions import TelegramConflictError
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
@@ -110,8 +114,16 @@ def main() -> None:
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
 
-    # Run
-    dp.run_polling(bot)
+    # Run polling. TelegramConflictError = another instance polling same bot.
+    try:
+        dp.run_polling(bot)
+    except TelegramConflictError as e:
+        logger.critical(
+            "TelegramConflictError: another instance is polling this bot. "
+            "Railway: set scale=1. Error: %s",
+            e,
+        )
+        sys.exit(1)
 
 
 if __name__ == "__main__":

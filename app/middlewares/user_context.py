@@ -2,11 +2,34 @@
 User context middleware — inject user and session into handler data.
 """
 
+import logging
+
 from aiogram import BaseMiddleware
 from aiogram.types import Message, CallbackQuery, TelegramObject
+from sqlalchemy.exc import ProgrammingError
 
 from app.models.base import get_async_session_maker
 from app.services.user_service import UserService
+
+logger = logging.getLogger(__name__)
+
+try:
+    import asyncpg
+    _ASYNCPG_EXC = (asyncpg.exceptions.UndefinedColumnError, asyncpg.exceptions.PostgresError)
+except ImportError:
+    _ASYNCPG_EXC = ()
+
+
+def _is_schema_error(exc: BaseException) -> bool:
+    """Check if error indicates DB schema mismatch (missing column, etc)."""
+    if isinstance(exc, _ASYNCPG_EXC) and "column" in str(exc).lower():
+        return True
+    msg = str(exc).lower()
+    if "undefinedcolumn" in msg or "does not exist" in msg or ("column" in msg and "exist" in msg):
+        return True
+    if hasattr(exc, "__cause__") and exc.__cause__:
+        return _is_schema_error(exc.__cause__)
+    return False
 
 
 class UserContextMiddleware(BaseMiddleware):
@@ -52,6 +75,13 @@ class UserContextMiddleware(BaseMiddleware):
                 result = await handler(event, data)
                 await session.commit()
                 return result
-            except Exception:
+            except (ProgrammingError, *_ASYNCPG_EXC, Exception) as e:
                 await session.rollback()
+                if _is_schema_error(e):
+                    logger.critical(
+                        "DB schema mismatch: model expects columns missing in DB. "
+                        "Run: alembic upgrade head. Error: %s",
+                        e,
+                        exc_info=True,
+                    )
                 raise

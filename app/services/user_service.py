@@ -68,7 +68,8 @@ class UserService:
 
     async def refresh_tier(self, user: User) -> User:
         """Refresh user tier from trial/subscription state."""
-        now = datetime.utcnow()
+        from datetime import timezone
+        now = datetime.now(timezone.utc)
         if user.tier == UserTier.TRIAL and user.trial_ends_at and user.trial_ends_at <= now:
             user.tier = UserTier.FREE
             user.trial_ends_at = None

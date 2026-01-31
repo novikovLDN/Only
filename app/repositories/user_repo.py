@@ -54,10 +54,10 @@ class UserRepository(BaseRepository[User]):
             await self._session.refresh(user)
             return user, False
 
-        from datetime import timedelta
+        from datetime import timedelta, timezone
 
         ref_code = self._generate_referral_code()
-        trial_ends = datetime.utcnow().replace(tzinfo=None) + timedelta(days=settings.trial_days)
+        trial_ends = datetime.now(timezone.utc) + timedelta(days=settings.trial_days)
 
         user = User(
             id=telegram_id,  # Use telegram_id as id for simplicity
