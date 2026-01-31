@@ -30,6 +30,7 @@ from app.keyboards.fsm_habits import (
 from app.keyboards.habits import habit_detail_keyboard, habits_list_keyboard
 from app.keyboards.main_menu import habit_reminder_keyboard
 from app.services.habit_service import HabitService
+from app.utils.keyboard import edit_reply_markup_if_changed
 from app.services.user_service import UserService
 from app.texts import (
     HABIT_CONFIRM_PROMPT,
@@ -211,7 +212,7 @@ async def habit_day_toggle_cb(callback: CallbackQuery, state: FSMContext) -> Non
     else:
         days.append(day)
     await state.update_data(**{FSM_HABIT_DAYS: days})
-    await callback.message.edit_reply_markup(reply_markup=habit_days_keyboard(days))
+    await edit_reply_markup_if_changed(callback.message, habit_days_keyboard(days))
 
 
 @router.callback_query(F.data == "habit_days_ok", HabitCreateFSM.choosing_days)
@@ -239,7 +240,7 @@ async def habit_time_toggle_cb(callback: CallbackQuery, state: FSMContext) -> No
     else:
         times.append(time_slot)
     await state.update_data(**{FSM_HABIT_TIMES: times})
-    await callback.message.edit_reply_markup(reply_markup=habit_time_keyboard(times))
+    await edit_reply_markup_if_changed(callback.message, habit_time_keyboard(times))
 
 
 @router.callback_query(F.data == "habit_time_ok", HabitCreateFSM.choosing_time)
