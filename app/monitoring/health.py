@@ -39,8 +39,12 @@ async def check_db() -> bool:
 
 
 async def check_scheduler() -> bool:
-    """Verify scheduler is running."""
+    """Verify scheduler is running. In degraded mode, pass (scheduler disabled by design)."""
     try:
+        from app.core.runtime_state import is_schema_ok
+
+        if not is_schema_ok():
+            return True  # Degraded: scheduler disabled, healthy for Railway
         from app.scheduler.init import get_scheduler
 
         sched = get_scheduler()

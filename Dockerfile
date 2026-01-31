@@ -12,4 +12,5 @@ COPY . .
 EXPOSE 8080
 
 # Migrations before app start (uses asyncpg, same as app)
-CMD ["sh", "-c", "alembic upgrade head && python run.py"]
+# Deploy gate: fail if migrations not at head
+CMD ["sh", "-c", "python scripts/deploy_gate.py && python run.py"]

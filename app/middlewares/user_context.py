@@ -1,11 +1,12 @@
 """
 User context middleware — inject user and session into handler data.
 
-On schema error: log CRITICAL, alert admin, reply to user gracefully.
-DO NOT propagate raw DB errors — convert to controlled handling.
+On schema error: minimal in-memory user, no DB, continue update pipeline.
+Middleware must NEVER kill update pipeline.
 """
 
 import logging
+from types import SimpleNamespace
 
 from aiogram import BaseMiddleware, Bot
 from aiogram.types import Message, CallbackQuery, TelegramObject
@@ -24,6 +25,23 @@ except ImportError:
     _ASYNCPG_EXC = ()
 
 SCHEMA_ERROR_USER_MESSAGE = "⚠️ Система обновляется, попробуйте через минуту."
+
+
+def _minimal_user_context(from_user) -> SimpleNamespace:
+    """Fallback in-memory user when DB schema mismatch. Skip DB access."""
+    return SimpleNamespace(
+        id=from_user.id,
+        telegram_id=from_user.id,
+        username=from_user.username,
+        first_name=from_user.first_name or "",
+        last_name=from_user.last_name,
+        language_code=from_user.language_code or "en",
+        referral_code=None,
+        tier="free",
+        is_blocked=False,
+        timezone="UTC",
+        notifications_enabled=True,
+    )
 
 
 def _is_schema_error(exc: BaseException) -> bool:
@@ -113,7 +131,7 @@ class UserContextMiddleware(BaseMiddleware):
                 await session.rollback()
                 if _is_schema_error(e):
                     logger.critical(
-                        "DB schema mismatch: model expects columns missing in DB. "
+                        "DB schema mismatch: using minimal user context. "
                         "Run: alembic upgrade head. Error: %s",
                         e,
                         exc_info=True,
@@ -122,6 +140,10 @@ class UserContextMiddleware(BaseMiddleware):
                     bot = getattr(event, "bot", None) or data.get("bot") or get_bot()
                     if bot:
                         await _send_schema_error_alert(bot, e)
-                        await _reply_to_user(event, SCHEMA_ERROR_USER_MESSAGE, bot)
-                    return
+                    # Fail-safe: minimal in-memory user, no session, continue pipeline
+                    data["user"] = _minimal_user_context(from_user)
+                    data["session"] = None
+                    data["user_service"] = None
+                    data["schema_degraded"] = True
+                    return await handler(event, data)
                 raise

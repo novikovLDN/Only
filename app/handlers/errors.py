@@ -59,12 +59,39 @@ def _get_bot_from_event(event: ErrorEvent):
 router = Router(name="errors")
 
 
+def _get_chat_id_from_event(event: ErrorEvent) -> int | None:
+    """Extract chat_id for user-facing error reply."""
+    try:
+        update = event.update
+        if hasattr(update, "message") and update.message:
+            return update.message.chat.id if update.message.chat else None
+        if hasattr(update, "callback_query") and update.callback_query:
+            msg = update.callback_query.message
+            return msg.chat.id if msg and msg.chat else None
+    except Exception:
+        pass
+    return None
+
+
 @router.error()
 async def global_error_handler(event: ErrorEvent) -> None:
     """Catch all errors. Log, classify, alert on critical/warning."""
     exc = event.exception
     severity = _severity(exc)
     logger.error("Handler error: %s", exc, exc_info=(severity == "critical"))
+
+    # Schema degraded: session is None, handler failed — reply to user
+    if isinstance(exc, (AttributeError, TypeError)) and "NoneType" in str(exc):
+        bot = _get_bot_from_event(event)
+        chat_id = _get_chat_id_from_event(event)
+        if bot and chat_id:
+            try:
+                await bot.send_message(
+                    chat_id=chat_id,
+                    text="⚠️ Система обновляется, попробуйте через минуту.",
+                )
+            except Exception:
+                pass
 
     if severity == "critical":
         logger.critical("CRITICAL error: %s", exc, exc_info=True)

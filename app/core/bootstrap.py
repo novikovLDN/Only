@@ -1,7 +1,8 @@
 """
-Startup bootstrap — migrations, single-instance lock, schema verification.
+Startup bootstrap — migrations, schema verification, instance role.
 
-FAIL FAST: any step fails → abort startup, do not poll Telegram.
+Migrations pending → ABORT (fail deploy).
+Schema mismatch → DEGRADED (disable scheduler, allow bot with limited functionality).
 """
 
 import logging
@@ -11,6 +12,7 @@ from sqlalchemy import text
 
 from app.config import settings
 from app.models.base import get_async_session_maker
+from app.core.runtime_state import set_schema_ok
 
 if TYPE_CHECKING:
     pass
@@ -65,7 +67,7 @@ async def check_migrations_pending() -> bool:
 async def verify_schema() -> bool:
     """
     Verify users table has required columns.
-    Return False if schema mismatch.
+    On mismatch: set degraded mode, DO NOT abort — allow bot with limited functionality.
     """
     required_columns = {"notifications_enabled", "profile_views_count"}
     try:
@@ -83,14 +85,18 @@ async def verify_schema() -> bool:
             missing = required_columns - existing
             if missing:
                 logger.critical(
-                    "DATABASE SCHEMA OUT OF SYNC — ABORTING STARTUP. "
-                    "Missing columns in users: %s. Run: alembic upgrade head",
+                    "DATABASE SCHEMA OUT OF SYNC — DEGRADED MODE. "
+                    "Missing columns in users: %s. Run: alembic upgrade head. "
+                    "Scheduler disabled. Bot runs with limited functionality.",
                     missing,
                 )
+                set_schema_ok(False)
                 return False
+            set_schema_ok(True)
             return True
     except Exception as e:
         logger.exception("Schema verification failed: %s", e)
+        set_schema_ok(False)
         return False
 
 
@@ -111,19 +117,21 @@ def check_instance_role() -> bool:
     return False
 
 
-async def bootstrap() -> bool:
+async def bootstrap() -> tuple[bool, bool]:
     """
-    Run all startup checks. Returns True if OK, False to abort.
-    Order: role check → migrations → schema.
+    Run startup checks.
+    Returns (proceed, schema_ok).
+    - proceed=False → abort startup (migrations pending, instance role)
+    - proceed=True, schema_ok=False → degraded mode (no scheduler)
+    - proceed=True, schema_ok=True → full mode
     """
     if not check_instance_role():
-        return False
+        return False, False
 
     if await check_migrations_pending():
-        return False
+        return False, False
 
-    if not await verify_schema():
-        return False
+    schema_ok = await verify_schema()
 
-    logger.info("Bootstrap complete")
-    return True
+    logger.info("Bootstrap complete (schema_ok=%s)", schema_ok)
+    return True, schema_ok

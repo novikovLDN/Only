@@ -54,11 +54,13 @@ async def on_startup(bot: Bot) -> None:
 
     logger.info("Starting...")
 
-    # 1. Bootstrap (fail fast)
+    # 1. Bootstrap
     from app.core.bootstrap import bootstrap
-    if not await bootstrap():
-        logger.critical("Bootstrap failed — aborting startup")
-        raise RuntimeError("Bootstrap failed: migrations/schema/instance check")
+    from app.core.runtime_state import is_schema_ok
+    proceed, schema_ok = await bootstrap()
+    if not proceed:
+        logger.critical("Bootstrap failed — aborting startup (migrations/instance)")
+        raise RuntimeError("Bootstrap failed: migrations pending or instance role")
 
     # 2. Database
     await init_db()
@@ -72,9 +74,12 @@ async def on_startup(bot: Bot) -> None:
     )
     logger.info("Health server on port %d", port)
 
-    # 4. Scheduler (after schema verified)
-    setup_scheduler(bot)
-    logger.info("Scheduler started")
+    # 4. Scheduler — only if schema OK (prevents crash loop)
+    if is_schema_ok():
+        setup_scheduler(bot)
+        logger.info("Scheduler started")
+    else:
+        logger.warning("Scheduler DISABLED — schema drift. Run: alembic upgrade head")
 
     logger.info("Startup complete")
 

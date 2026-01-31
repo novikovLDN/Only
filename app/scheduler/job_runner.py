@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import ProgrammingError
 
 from app.config.constants import UserTier
+from app.core.runtime_state import is_scheduler_circuit_tripped, trip_scheduler_circuit
 
 try:
     import asyncpg
@@ -27,6 +28,8 @@ def _is_schema_error(exc: BaseException) -> bool:
         return True
     msg = str(exc).lower()
     return "undefinedcolumn" in msg or "does not exist" in msg
+
+
 from app.models.base import get_async_session_maker
 from app.models.habit import Habit
 from app.models.habit_schedule import HabitSchedule
@@ -67,8 +70,10 @@ def _user_has_active_access(user: User, sub: Subscription | None) -> bool:  # no
 async def run_habit_reminders_job(bot: Bot) -> None:
     """
     Idempotent: проверяем время в user timezone, статус пользователя.
-    Schema drift: catch UndefinedColumnError, log once, skip execution.
+    Circuit breaker: on schema error, trip and skip until restart.
     """
+    if is_scheduler_circuit_tripped():
+        return
     async with job_execution_log("habit_reminders"):
         session_factory = get_async_session_maker()
         async with session_factory() as session:
@@ -84,8 +89,10 @@ async def run_habit_reminders_job(bot: Bot) -> None:
                 rows = result.all()
             except _SCHEMA_ERR as e:
                 if _is_schema_error(e):
+                    trip_scheduler_circuit()
                     logger.critical(
-                        "habit_reminders: schema drift — skip. Run: alembic upgrade head. %s",
+                        "habit_reminders: schema drift — circuit tripped. "
+                        "Run: alembic upgrade head. Job disabled until restart. %s",
                         e,
                     )
                 return
@@ -120,8 +127,10 @@ async def run_habit_reminders_job(bot: Bot) -> None:
 async def run_trial_notifications_job(bot: Bot) -> None:
     """
     Idempotent: проверяем актуальный tier, trial_ends_at перед отправкой.
-    Schema drift: skip on UndefinedColumnError.
+    Circuit breaker: skip if schema drift detected.
     """
+    if is_scheduler_circuit_tripped():
+        return
     async with job_execution_log("trial_notifications"):
         session_factory = get_async_session_maker()
         async with session_factory() as session:
@@ -135,7 +144,8 @@ async def run_trial_notifications_job(bot: Bot) -> None:
                 users = result.scalars().all()
             except _SCHEMA_ERR as e:
                 if _is_schema_error(e):
-                    logger.critical("trial_notifications: schema drift — skip. %s", e)
+                    trip_scheduler_circuit()
+                    logger.critical("trial_notifications: schema drift — circuit tripped. %s", e)
                 return
             notifier = NotificationService(bot)
             sent = 0
@@ -167,8 +177,10 @@ async def run_trial_notifications_job(bot: Bot) -> None:
 async def run_subscription_notifications_job(bot: Bot) -> None:
     """
     Idempotent: проверяем subscription.is_active, expires_at.
-    Schema drift: skip on UndefinedColumnError.
+    Circuit breaker: skip if schema drift detected.
     """
+    if is_scheduler_circuit_tripped():
+        return
     async with job_execution_log("subscription_notifications"):
         session_factory = get_async_session_maker()
         async with session_factory() as session:
@@ -181,7 +193,8 @@ async def run_subscription_notifications_job(bot: Bot) -> None:
                 rows = result.all()
             except _SCHEMA_ERR as e:
                 if _is_schema_error(e):
-                    logger.critical("subscription_notifications: schema drift — skip. %s", e)
+                    trip_scheduler_circuit()
+                    logger.critical("subscription_notifications: schema drift — circuit tripped. %s", e)
                 return
             notifier = NotificationService(bot)
             now = utc_now()
