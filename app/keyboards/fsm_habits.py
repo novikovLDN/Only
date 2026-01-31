@@ -66,9 +66,10 @@ def habit_confirm_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="✅ Создать", callback_data="habit_confirm:yes"),
-                InlineKeyboardButton(text="❌ Отмена", callback_data="habit_confirm:no"),
+                InlineKeyboardButton(text="✅ Подтвердить", callback_data="habit_confirm:yes"),
+                InlineKeyboardButton(text="✏️ Изменить", callback_data="habit_confirm:edit"),
             ],
+            [InlineKeyboardButton(text="❌ Отмена", callback_data="habit_confirm:no")],
         ]
     )
 

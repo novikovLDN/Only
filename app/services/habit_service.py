@@ -31,22 +31,31 @@ class HabitService:
         schedule_type: str = HabitScheduleType.DAILY,
         reminder_time: str = "09:00",
         days_of_week: str | None = None,
+        reminder_times: list[str] | None = None,
     ) -> Habit | None:
-        """Create habit with schedule."""
+        """
+        Create habit with schedule(s).
+        If reminder_times provided — создаёт по одному HabitSchedule на каждое время.
+        Иначе — один schedule с reminder_time.
+        """
         name = validate_habit_name(name)
         if not name:
             return None
-        if not validate_time(reminder_time):
-            reminder_time = "09:00"
+        times = reminder_times if reminder_times else [reminder_time]
+        validated_times = [t for t in times if validate_time(t)]
+        if not validated_times:
+            validated_times = ["09:00"]
         habit = Habit(user_id=user_id, name=name, description=description, emoji=emoji)
         await self._repo.add(habit)
-        sched = HabitSchedule(
-            habit_id=habit.id,
-            schedule_type=schedule_type,
-            reminder_time=reminder_time,
-            days_of_week=days_of_week,
-        )
-        self._session.add(sched)
+        days_str = days_of_week or ""
+        for t in validated_times:
+            sched = HabitSchedule(
+                habit_id=habit.id,
+                schedule_type=schedule_type,
+                reminder_time=t,
+                days_of_week=days_str or None,
+            )
+            self._session.add(sched)
         await self._session.flush()
         await self._session.refresh(habit)
         return habit

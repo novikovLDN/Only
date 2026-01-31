@@ -128,6 +128,7 @@ async def habit_select_cb(callback: CallbackQuery, user, session) -> None:
     """Show habit detail."""
     await callback.answer()
     habit_id = int(callback.data.split(":")[1])
+    from app.fsm.constants import WEEKDAYS
     from app.repositories.habit_repo import HabitRepository
 
     repo = HabitRepository(session)
@@ -135,7 +136,23 @@ async def habit_select_cb(callback: CallbackQuery, user, session) -> None:
     if not habit:
         await callback.message.answer(HABIT_NOT_FOUND)
         return
-    text = f"{habit.emoji or '✅'} <b>{habit.name}</b>\n\n" + (habit.description or "")
+    lines = [f"{habit.emoji or '✅'} <b>{habit.name}</b>"]
+    if habit.description:
+        lines.append(habit.description)
+    if habit.schedules:
+        days_set = set()
+        times_list = []
+        for s in habit.schedules:
+            if s.days_of_week:
+                days_set.update(int(d) for d in s.days_of_week.split(",") if d.strip())
+            times_list.append(s.reminder_time)
+        if days_set:
+            days_str = ", ".join(WEEKDAYS[d] for d in sorted(days_set) if 0 <= d <= 6)
+            lines.append(f"Дни: {days_str}")
+        if times_list:
+            times_str = ", ".join(sorted(set(times_list)))
+            lines.append(f"Время: {times_str}")
+    text = "\n\n".join(lines)
     await callback.message.answer(text, reply_markup=habit_detail_keyboard(habit.id))
 
 
@@ -218,12 +235,12 @@ async def habit_day_toggle_cb(callback: CallbackQuery, state: FSMContext) -> Non
 @router.callback_query(F.data == "habit_days_ok", HabitCreateFSM.choosing_days)
 async def habit_days_confirm_cb(callback: CallbackQuery, state: FSMContext) -> None:
     """Подтверждение дней → выбор времени."""
-    await callback.answer()
     data = await state.get_data()
     days = data.get(FSM_HABIT_DAYS) or []
     if not days:
         await callback.answer(HABIT_DAYS_REQUIRED, show_alert=True)
         return
+    await callback.answer()
     await state.set_state(HabitCreateFSM.choosing_time)
     await callback.message.answer(HABIT_TIME_PROMPT, reply_markup=habit_time_keyboard([]))
 
@@ -232,7 +249,7 @@ async def habit_days_confirm_cb(callback: CallbackQuery, state: FSMContext) -> N
 async def habit_time_toggle_cb(callback: CallbackQuery, state: FSMContext) -> None:
     """Toggle времени в multi-select."""
     await callback.answer()
-    time_slot = callback.data.split(":")[1]
+    time_slot = callback.data.split(":", 1)[1]  # "habit_time:06:00" -> "06:00"
     data = await state.get_data()
     times: list[str] = list(data.get(FSM_HABIT_TIMES) or [])
     if time_slot in times:
@@ -246,12 +263,12 @@ async def habit_time_toggle_cb(callback: CallbackQuery, state: FSMContext) -> No
 @router.callback_query(F.data == "habit_time_ok", HabitCreateFSM.choosing_time)
 async def habit_time_confirm_cb(callback: CallbackQuery, state: FSMContext) -> None:
     """Подтверждение времени → подтверждение создания."""
-    await callback.answer()
     data = await state.get_data()
     times = data.get(FSM_HABIT_TIMES) or []
     if not times:
         await callback.answer(HABIT_TIME_REQUIRED, show_alert=True)
         return
+    await callback.answer()
     await state.set_state(HabitCreateFSM.confirming)
     name = data.get(FSM_HABIT_NAME, "Привычка")
     days = data.get(FSM_HABIT_DAYS) or []
@@ -263,8 +280,17 @@ async def habit_time_confirm_cb(callback: CallbackQuery, state: FSMContext) -> N
 
 @router.callback_query(F.data.startswith("habit_confirm:"), HabitCreateFSM.confirming)
 async def habit_confirm_cb(callback: CallbackQuery, user, session, state: FSMContext) -> None:
-    """Финальное подтверждение — вызов domain service."""
+    """Финальное подтверждение — вызов domain service или возврат к редактированию."""
     await callback.answer()
+    if callback.data.endswith(":edit"):
+        await state.set_state(HabitCreateFSM.choosing_time)
+        data = await state.get_data()
+        times = data.get(FSM_HABIT_TIMES) or []
+        await callback.message.answer(
+            HABIT_TIME_PROMPT,
+            reply_markup=habit_time_keyboard(times),
+        )
+        return
     if callback.data.endswith(":no"):
         await state.clear()
         await callback.message.answer(HABIT_CANCELLED)
@@ -277,13 +303,11 @@ async def habit_confirm_cb(callback: CallbackQuery, user, session, state: FSMCon
     await state.clear()
     svc = HabitService(session)
     days_str = ",".join(str(d) for d in sorted(days))
-    reminder_time = sorted(times)[0]
-    # TODO: поддержка нескольких напоминаний в день — несколько HabitSchedule
     habit = await svc.create_habit(
         user.id,
         name=name,
         emoji=emoji,
-        reminder_time=reminder_time,
+        reminder_times=sorted(times),
         days_of_week=days_str,
     )
     if habit:
