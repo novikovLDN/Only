@@ -21,6 +21,33 @@ logger = logging.getLogger(__name__)
 HealthCheckFunc = Callable[[], Awaitable[object]]
 
 
+async def create_deep_health_handler(
+    health_check: HealthCheckFunc | None = None,
+) -> web.RequestHandler:
+    """Create GET /health/deep handler — detailed diagnostics."""
+
+    async def handler(request: web.Request) -> web.Response:
+        try:
+            check = health_check or full_health_check
+            status = await check()
+            ok = getattr(status, "ok", False)
+            details = getattr(status, "details", {})
+            from app.core.runtime_state import is_schema_ok, is_scheduler_circuit_tripped
+            details["schema_ok"] = is_schema_ok()
+            details["scheduler_circuit_tripped"] = is_scheduler_circuit_tripped()
+            return web.json_response(
+                {"ok": ok, "details": details, "deep": True},
+                status=200 if ok else 503,
+            )
+        except Exception as e:
+            return web.json_response(
+                {"ok": False, "error": str(e), "details": {}, "deep": True},
+                status=503,
+            )
+
+    return handler
+
+
 async def create_health_handler(
     health_check: HealthCheckFunc | None = None,
 ) -> web.RequestHandler:
@@ -71,6 +98,8 @@ async def start_health_server(
     app = web.Application()
     handler = await create_health_handler(health_check=health_check)
     app.router.add_get("/health", handler)
+    deep_handler = await create_deep_health_handler(health_check=health_check)
+    app.router.add_get("/health/deep", deep_handler)
 
     runner = web.AppRunner(app)
     await runner.setup()

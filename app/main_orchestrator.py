@@ -90,6 +90,9 @@ async def on_shutdown(bot: Bot) -> None:
 
     logger.info("Shutting down...")
 
+    from app.core.runtime_state import release_bot_lock
+    await release_bot_lock()
+
     if _health_runner:
         await _health_runner.cleanup()
         _health_runner = None
@@ -99,9 +102,20 @@ async def on_shutdown(bot: Bot) -> None:
     logger.info("Shutdown complete")
 
 
+def validate_environment() -> None:
+    """Fail fast if required env vars missing."""
+    missing = []
+    if not settings.bot_token:
+        missing.append("BOT_TOKEN")
+    if missing:
+        logger.critical("Missing required env: %s", ", ".join(missing))
+        raise RuntimeError(f"Missing required env: {', '.join(missing)}")
+
+
 def main() -> None:
     """Orchestrate and run."""
     setup_logging()
+    validate_environment()
 
     if not settings.bot_token:
         logger.error("BOT_TOKEN not set")

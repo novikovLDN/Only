@@ -1,7 +1,7 @@
 """
 Startup bootstrap — migrations, schema verification, instance role.
 
-Migrations pending → ABORT (fail deploy).
+Migrations pending → run upgrade, then re-check; if still pending → ABORT.
 Schema mismatch → DEGRADED (disable scheduler, allow bot with limited functionality).
 """
 
@@ -20,6 +20,22 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 ADMIN_CHAT_ID = 6214188086
+
+
+def _run_migrations() -> bool:
+    """Run alembic upgrade head via subprocess (avoids event loop nesting)."""
+    import subprocess
+    import sys
+    r = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        capture_output=True,
+        text=True,
+    )
+    if r.returncode != 0:
+        logger.error("Migration failed: %s", r.stderr or r.stdout)
+        return False
+    logger.info("Migrations applied")
+    return True
 
 
 async def check_migrations_pending() -> bool:
@@ -117,6 +133,37 @@ def check_instance_role() -> bool:
     return False
 
 
+async def try_acquire_bot_lock() -> bool:
+    """
+    PostgreSQL advisory lock — single bot instance per DB.
+    Lock held until release_bot_lock() on shutdown.
+    Returns False if lock held by another process.
+    """
+    from app.core.runtime_state import set_bot_lock_ctx
+
+    try:
+        session_factory = get_async_session_maker()
+        ctx = session_factory()
+        session = await ctx.__aenter__()
+        result = await session.execute(
+            text("SELECT pg_try_advisory_lock(1331616889)")
+        )
+        acquired = result.scalar_one_or_none()
+        if not acquired:
+            await ctx.__aexit__(None, None, None)
+            logger.critical(
+                "Another bot instance holds the lock — shutting down safely. "
+                "Railway: set scale=1."
+            )
+            return False
+        set_bot_lock_ctx(ctx)
+        logger.info("Bot instance lock acquired")
+        return True
+    except Exception as e:
+        logger.exception("Failed to acquire bot lock: %s", e)
+        return False
+
+
 async def bootstrap() -> tuple[bool, bool]:
     """
     Run startup checks.
@@ -128,8 +175,17 @@ async def bootstrap() -> tuple[bool, bool]:
     if not check_instance_role():
         return False, False
 
-    if await check_migrations_pending():
+    if not await try_acquire_bot_lock():
         return False, False
+
+    # Run migrations if pending (self-healing)
+    if await check_migrations_pending():
+        logger.warning("Migrations pending — attempting alembic upgrade head")
+        if not _run_migrations():
+            return False, False
+        if await check_migrations_pending():
+            logger.critical("Migrations still pending after upgrade — aborting")
+            return False, False
 
     schema_ok = await verify_schema()
 
