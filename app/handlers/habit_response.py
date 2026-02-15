@@ -1,42 +1,25 @@
-"""Confirm/Decline habit flow — Message handlers for ReplyKeyboard buttons."""
-
-import logging
-from datetime import date
+"""Confirm/Decline habit flow — inline keyboards only."""
 
 from aiogram import Router, F
-from aiogram.types import Message
+from aiogram.types import CallbackQuery
 
-from app.utils.i18n import t, text_to_decline_reason, TRANSLATIONS
-from app.keyboards.reply import habit_confirm_decline, decline_reasons, main_menu
+from app.keyboards.inline import habit_confirm_decline, decline_reasons, main_menu
+from app.utils.i18n import t
 
-logger = logging.getLogger(__name__)
 router = Router(name="habit_response")
 
-CONFIRM_TEXTS = frozenset([
-    TRANSLATIONS["ru"]["btn.confirm"], TRANSLATIONS["en"]["btn.confirm"],
-])
-DECLINE_TEXTS = frozenset([
-    TRANSLATIONS["ru"]["btn.decline"], TRANSLATIONS["en"]["btn.decline"],
-])
-DECLINE_BACK_TEXTS = frozenset([
-    TRANSLATIONS["ru"]["decline.back"], TRANSLATIONS["en"]["decline.back"],
-])
-DECLINE_REASON_TEXTS = frozenset([
-    TRANSLATIONS["ru"]["decline.reason_tired"], TRANSLATIONS["en"]["decline.reason_tired"],
-    TRANSLATIONS["ru"]["decline.reason_sick"], TRANSLATIONS["en"]["decline.reason_sick"],
-    TRANSLATIONS["ru"]["decline.reason_no_want"], TRANSLATIONS["en"]["decline.reason_no_want"],
-])
 
-
-@router.message(F.text.in_(CONFIRM_TEXTS))
-async def confirm_habit(message: Message, user, t, session) -> None:
+@router.callback_query(F.data.startswith("habit_confirm:"))
+async def cb_habit_confirm(cb: CallbackQuery, user, t, session) -> None:
     from app.repositories.habit_log_repo import HabitLogRepository
     from app.services.progress_service import ProgressService
 
+    await cb.answer()
+    log_id = int((cb.data or "").split(":")[1])
     log_repo = HabitLogRepository(session)
-    pending = await log_repo.get_pending_for_user(user.id)
-    if not pending:
-        await message.answer(
+    pending = await log_repo.get_by_id(log_id)
+    if not pending or pending.user_id != user.id or pending.status != "pending":
+        await cb.message.edit_text(
             "🎉\n\n" + t("main.greeting", first_name=user.first_name or "User") + "\n\n" + t("main.subtitle") + "\n\n" + t("main.action_prompt"),
             reply_markup=main_menu(t),
         )
@@ -45,32 +28,33 @@ async def confirm_habit(message: Message, user, t, session) -> None:
     progress_svc = ProgressService(session)
     await progress_svc.recalc_daily_for_user(user.id, pending.date)
     await session.commit()
-    await message.answer(
+    await cb.message.edit_text(
         "🎉\n\n" + t("main.greeting", first_name=user.first_name or "User") + "\n\n" + t("main.subtitle") + "\n\n" + t("main.action_prompt"),
         reply_markup=main_menu(t),
     )
 
 
-@router.message(F.text.in_(DECLINE_TEXTS))
-async def decline_habit(message: Message, user, t) -> None:
-    await message.answer(
-        t("decline.are_you_sure"),
-        reply_markup=decline_reasons(t),
-    )
+@router.callback_query(F.data.startswith("habit_decline:"))
+async def cb_habit_decline(cb: CallbackQuery, user, t) -> None:
+    await cb.answer()
+    log_id = int((cb.data or "").split(":")[1])
+    await cb.message.edit_text(t("decline.are_you_sure"), reply_markup=decline_reasons(t, log_id))
 
 
-@router.message(F.text.in_(DECLINE_BACK_TEXTS))
-async def decline_back(message: Message, user, t, session) -> None:
-    from app.repositories.habit_log_repo import HabitLogRepository
+@router.callback_query(F.data.startswith("habit_decline_back:"))
+async def cb_habit_decline_back(cb: CallbackQuery, user, t, session) -> None:
     from app.repositories.habit_repo import HabitRepository
+    from app.repositories.habit_log_repo import HabitLogRepository
     from app.services.motivation_service import MotivationService
     from app.repositories.motivation_repo import MotivationRepository
 
+    await cb.answer()
+    log_id = int((cb.data or "").split(":")[1])
     log_repo = HabitLogRepository(session)
-    pending = await log_repo.get_pending_for_user(user.id)
+    pending = await log_repo.get_by_id(log_id)
     if not pending:
         text = t("main.greeting", first_name=user.first_name or "User") + "\n\n" + t("main.subtitle") + "\n\n" + t("main.action_prompt")
-        await message.answer(text, reply_markup=main_menu(t))
+        await cb.message.edit_text(text, reply_markup=main_menu(t))
         return
     habit_repo = HabitRepository(session)
     habit = await habit_repo.get_by_id(pending.habit_id)
@@ -82,26 +66,31 @@ async def decline_back(message: Message, user, t, session) -> None:
     phrase = await motivation_svc.get_random_phrase(lang)
     await session.commit()
     msg = f"📌 {habit.title}\n\n{phrase}"
-    await message.answer(msg, reply_markup=habit_confirm_decline(t))
+    await cb.message.edit_text(msg, reply_markup=habit_confirm_decline(t, pending.id))
 
 
-@router.message(F.text.in_(DECLINE_REASON_TEXTS))
-async def decline_reason_selected(message: Message, user, t, session) -> None:
-    reason = text_to_decline_reason(message.text or "")
-    if not reason:
-        return
+@router.callback_query(F.data.startswith("habit_decline_tired:"))
+@router.callback_query(F.data.startswith("habit_decline_sick:"))
+@router.callback_query(F.data.startswith("habit_decline_no_want:"))
+async def cb_habit_decline_reason(cb: CallbackQuery, user, t, session) -> None:
     from app.repositories.habit_log_repo import HabitLogRepository
     from app.services.progress_service import ProgressService
 
+    await cb.answer()
+    parts = (cb.data or "").split(":")
+    if len(parts) < 2:
+        return
+    log_id = int(parts[1])
+    reason = parts[0].replace("habit_decline_", "")
     log_repo = HabitLogRepository(session)
-    pending = await log_repo.get_pending_for_user(user.id)
-    if not pending:
+    pending = await log_repo.get_by_id(log_id)
+    if not pending or pending.user_id != user.id:
         text = t("decline.understood") + "\n\n" + t("main.greeting", first_name=user.first_name or "User") + "\n\n" + t("main.subtitle") + "\n\n" + t("main.action_prompt")
-        await message.answer(text, reply_markup=main_menu(t))
+        await cb.message.edit_text(text, reply_markup=main_menu(t))
         return
     await log_repo.mark_declined(pending, reason)
     progress_svc = ProgressService(session)
     await progress_svc.recalc_daily_for_user(user.id, pending.date)
     await session.commit()
     text = t("decline.understood") + "\n\n" + t("main.greeting", first_name=user.first_name or "User") + "\n\n" + t("main.subtitle") + "\n\n" + t("main.action_prompt")
-    await message.answer(text, reply_markup=main_menu(t))
+    await cb.message.edit_text(text, reply_markup=main_menu(t))

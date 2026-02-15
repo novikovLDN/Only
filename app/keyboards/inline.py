@@ -26,6 +26,7 @@ def main_menu(t) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text=t("btn.add_habit"), callback_data="add_habit")],
         [InlineKeyboardButton(text=t("btn.edit_habits"), callback_data="edit_habits")],
         [InlineKeyboardButton(text=t("btn.loyalty"), callback_data="loyalty")],
+        [InlineKeyboardButton(text=t("btn.subscribe"), callback_data="to_subscription")],
         [InlineKeyboardButton(text=t("btn.settings"), callback_data="settings")],
         [InlineKeyboardButton(text=t("btn.support"), url=SUPPORT_URL)],
     ])
@@ -194,6 +195,33 @@ def progress_menu(t, has_missed: bool) -> InlineKeyboardMarkup:
         rows.append([InlineKeyboardButton(text=t("progress.my_missed"), callback_data="profile_missed")])
     rows.append([InlineKeyboardButton(text=t("btn.back"), callback_data="settings_profile")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def edit_habits_list(t, habits: list[tuple[int, str]]) -> InlineKeyboardMarkup:
+    """Inline list of habits for editing."""
+    rows = [[InlineKeyboardButton(text=title, callback_data=f"edit_habit:{hid}")] for hid, title in habits]
+    rows.append([InlineKeyboardButton(text=t("btn.back"), callback_data="back_main")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def habit_confirm_decline(t, log_id: int) -> InlineKeyboardMarkup:
+    """Confirm/Decline buttons for habit reminder."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text=t("btn.confirm"), callback_data=f"habit_confirm:{log_id}"),
+            InlineKeyboardButton(text=t("btn.decline"), callback_data=f"habit_decline:{log_id}"),
+        ],
+    ])
+
+
+def decline_reasons(t, log_id: int) -> InlineKeyboardMarkup:
+    """Decline reason buttons."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=t("decline.reason_tired"), callback_data=f"habit_decline_tired:{log_id}")],
+        [InlineKeyboardButton(text=t("decline.reason_sick"), callback_data=f"habit_decline_sick:{log_id}")],
+        [InlineKeyboardButton(text=t("decline.reason_no_want"), callback_data=f"habit_decline_no_want:{log_id}")],
+        [InlineKeyboardButton(text=t("decline.back"), callback_data=f"habit_decline_back:{log_id}")],
+    ])
 
 
 def edit_habit_detail(t, habit_id: int, lang: str = "en", current_days: set[int] | None = None) -> InlineKeyboardMarkup:

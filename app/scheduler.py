@@ -29,7 +29,7 @@ async def run_reminders(bot) -> None:
     from app.repositories.motivation_repo import MotivationRepository
     from app.services.motivation_service import MotivationService
     from app.utils.i18n import t
-    from app.keyboards.reply import habit_confirm_decline
+    from app.keyboards.inline import habit_confirm_decline
 
     try:
         sm = get_session_maker()
@@ -57,14 +57,14 @@ async def run_reminders(bot) -> None:
                             if lang not in ("ru", "en"):
                                 lang = "ru"
                             phrase = await motivation_svc.get_random_phrase(lang)
-                            await habit_log_repo.create_pending(user.id, habit.id, today)
+                            log = await habit_log_repo.create_pending(user.id, habit.id, today)
                             await session.commit()
                             _t = lambda k, **kw: t(lang, k, **kw)
                             msg = f"📌 {habit.title}\n\n{phrase}"
                             await bot.send_message(
                                 chat_id=user.telegram_id,
                                 text=msg,
-                                reply_markup=habit_confirm_decline(_t),
+                                reply_markup=habit_confirm_decline(_t, log.id),
                             )
                         except Exception as e:
                             logger.warning("Reminder failed: %s", e)

@@ -45,6 +45,10 @@ class HabitLogRepository:
         log.status = "missed"
         await self.session.flush()
 
+    async def get_by_id(self, log_id: int) -> HabitLog | None:
+        result = await self.session.execute(select(HabitLog).where(HabitLog.id == log_id))
+        return result.scalar_one_or_none()
+
     async def get_pending_for_user(self, user_id: int) -> HabitLog | None:
         result = await self.session.execute(
             select(HabitLog)

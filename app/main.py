@@ -8,8 +8,6 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import BotCommand
-
 from app.config import settings
 from app.logger import setup_logging
 
@@ -19,19 +17,9 @@ from app.middlewares.i18n import I18nMiddleware
 from app.middlewares.logging_mw import LoggingMiddleware
 
 from app.handlers import start, main_menu, habits, edit_habits, loyalty, profile, subscription, settings as settings_handler
-from app.handlers import habit_response, commands
+from app.handlers import habit_response, commands, callbacks
 
 logger = logging.getLogger(__name__)
-
-BOT_COMMANDS = [
-    BotCommand(command="start", description="🚀 Start"),
-    BotCommand(command="add", description="➕ Add habit"),
-    BotCommand(command="edit", description="✏️ Edit habits"),
-    BotCommand(command="support", description="🆘 Support"),
-    BotCommand(command="subscribe", description="💎 Buy subscription"),
-    BotCommand(command="loyalty", description="🎁 Loyalty program"),
-]
-
 
 def _create_bot_and_dp() -> tuple[Bot, Dispatcher]:
     bot = Bot(
@@ -50,6 +38,7 @@ def _create_bot_and_dp() -> tuple[Bot, Dispatcher]:
     dp.pre_checkout_query.middleware(SubscriptionMiddleware())
     dp.message.middleware(I18nMiddleware())
     dp.callback_query.middleware(I18nMiddleware())
+    dp.include_router(callbacks.router)
     dp.include_router(habit_response.router)
     dp.include_router(start.router)
     dp.include_router(commands.router)
@@ -84,10 +73,7 @@ async def main() -> None:
 
     await init_db()
     bot, dp = _create_bot_and_dp()
-    try:
-        await bot.set_my_commands(BOT_COMMANDS)
-    except Exception as e:
-        logger.warning("set_my_commands failed: %s", e)
+    # No set_my_commands — inline keyboards only, no persistent menu
     setup_scheduler(bot)
 
     try:
