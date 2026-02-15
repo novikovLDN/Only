@@ -114,7 +114,7 @@ async def cb_lang_selected(cb: CallbackQuery, user, t, session, user_service) ->
 
 
 @router.callback_query(F.data == "share_link")
-async def cb_share_link(cb: CallbackQuery, user) -> None:
+async def cb_share_link(cb: CallbackQuery, user, t) -> None:
     await cb.answer()
     try:
         me = await cb.bot.get_me()
@@ -122,9 +122,7 @@ async def cb_share_link(cb: CallbackQuery, user) -> None:
     except Exception:
         username = "your_bot"
     link = f"https://t.me/{username}?start=ref_{user.telegram_id}"
-    await cb.message.edit_text(link, reply_markup=main_menu(
-        lambda k, **kw: __import__("app.utils.i18n", fromlist=["t"]).t(user.language or "ru", k, **kw)
-    ))
+    await cb.message.edit_text(link, reply_markup=main_menu(t))
 
 
 @router.callback_query(F.data == "loyalty_details")
