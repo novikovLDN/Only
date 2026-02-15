@@ -28,6 +28,7 @@ class UserRepository:
         language: str | None = None,
         invited_by_id: int | None = None,
     ) -> User:
+        """Create user. NEVER pass id — DB generates via IDENTITY."""
         lang = language if language in ("ru", "en") else "ru"
         user = User(
             telegram_id=telegram_id,
@@ -38,6 +39,7 @@ class UserRepository:
         )
         self.session.add(user)
         await self.session.flush()
+        await self.session.refresh(user)
         return user
 
     async def get_or_create(
@@ -48,6 +50,7 @@ class UserRepository:
         language: str | None = None,
         invited_by_id: int | None = None,
     ) -> tuple[User, bool]:
+        """Get user by telegram_id or create. NEVER insert id manually — DB generates it."""
         user = await self.session.scalar(
             select(User).where(User.telegram_id == telegram_id)
         )
@@ -67,7 +70,8 @@ class UserRepository:
         self.session.add(user)
 
         try:
-            await self.session.commit()
+            await self.session.flush()
+            await self.session.refresh(user)
         except Exception:
             await self.session.rollback()
             raise

@@ -17,11 +17,12 @@ class User(Base):
     telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False, index=True)
     username: Mapped[str | None] = mapped_column(String(255), nullable=True)
     first_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
-    language: Mapped[str | None] = mapped_column(String(5), nullable=True, default=None)
+    language: Mapped[str | None] = mapped_column(String(5), nullable=True, default="ru")
     subscription_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     invited_by_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     timezone: Mapped[str] = mapped_column(String(50), nullable=False, default="UTC")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     invited_by: Mapped["User | None"] = relationship("User", remote_side="User.id")
@@ -75,6 +76,7 @@ class MotivationPhrase(Base):
     language: Mapped[str] = mapped_column(String(5), nullable=False, index=True)
     text: Mapped[str] = mapped_column(Text, nullable=False)
     is_used: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
 
 class HabitLog(Base):
@@ -87,6 +89,7 @@ class HabitLog(Base):
     date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False)  # pending, completed, declined, missed
     reason: Mapped[str | None] = mapped_column(String(50), nullable=True)  # tired, sick, no_want
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     user: Mapped["User"] = relationship("User", back_populates="habit_logs")
     habit: Mapped["Habit"] = relationship("Habit", back_populates="habit_logs")
@@ -120,10 +123,11 @@ class Payment(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    tariff: Mapped[str] = mapped_column(String(20), nullable=False)
-    provider: Mapped[str] = mapped_column(String(30), nullable=False)
+    tariff: Mapped[str] = mapped_column(String(50), nullable=False)
+    provider: Mapped[str] = mapped_column(String(50), nullable=False)
     amount: Mapped[int] = mapped_column(Integer, nullable=False)
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
     user: Mapped["User"] = relationship("User", back_populates="payments")

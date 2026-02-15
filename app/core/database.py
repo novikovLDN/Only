@@ -3,6 +3,7 @@
 import logging
 from collections.abc import AsyncGenerator
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import settings
@@ -11,6 +12,13 @@ logger = logging.getLogger(__name__)
 
 _engine = None
 _async_session_factory: async_sessionmaker[AsyncSession] | None = None
+
+
+def _mask_url(url: str) -> str:
+    """Mask credentials, show host."""
+    if "@" in url:
+        return url.split("@")[-1].split("?")[0]
+    return "***"
 
 
 def get_engine():
@@ -52,8 +60,12 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def init_db() -> None:
-    """Ensure DB connection. Schema managed ONLY by Alembic (run before app start)."""
-    get_engine()
+    """Verify DB connection. Schema managed ONLY by Alembic (run migrations before app start)."""
+    engine = get_engine()
+    logger.info("DATABASE host: %s", _mask_url(settings.database_url))
+    async with engine.connect() as conn:
+        await conn.execute(text("SELECT 1"))
+    logger.info("Database connection verified")
 
 
 async def close_db() -> None:
