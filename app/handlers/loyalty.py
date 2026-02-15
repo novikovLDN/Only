@@ -1,6 +1,6 @@
 """Loyalty / referral program — Reply keyboard only."""
 
-from aiogram import Router
+from aiogram import Router, F
 from aiogram.types import Message
 
 from app.keyboards.reply import loyalty_menu, main_menu
