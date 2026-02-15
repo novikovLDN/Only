@@ -28,9 +28,17 @@ async def build_loyalty_content(user, t, session, bot) -> tuple[str, "InlineKeyb
 
 @router.callback_query(F.data == "share_link")
 async def share_link_cb(callback: CallbackQuery, user, t, session) -> None:
-    text, kb = await build_loyalty_content(user, t, session, callback.message.bot)
-    await callback.message.edit_text(text, reply_markup=kb)
+    bot = callback.message.bot
+    username = "your_bot"
+    if bot:
+        try:
+            me = await bot.get_me()
+            username = me.username or "your_bot"
+        except Exception:
+            pass
+    link = f"https://t.me/{username}?start=ref_{user.telegram_id}"
     await callback.answer()
+    await callback.message.answer(link)
 
 
 @router.callback_query(F.data == "loyalty_details")

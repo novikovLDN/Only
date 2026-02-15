@@ -59,11 +59,13 @@ class UserRepository:
 
     async def extend_subscription(self, user: User, days: int) -> None:
         now = datetime.now(timezone.utc)
-        if user.subscription_until and user.subscription_until > now:
-            user.subscription_until = user.subscription_until + timedelta(days=days)
-        else:
-            user.subscription_until = now + timedelta(days=days)
+        base = (max(user.subscription_until, now) if user.subscription_until and user.subscription_until > now else now)
+        user.subscription_until = base + timedelta(days=days)
         await self.session.flush()
+
+    async def get_by_id_for_update(self, user_id: int) -> User | None:
+        result = await self.session.execute(select(User).where(User.id == user_id).with_for_update())
+        return result.scalar_one_or_none()
 
     async def count_referrals(self, user_id: int) -> int:
         result = await self.session.execute(

@@ -7,10 +7,13 @@ from aiogram import BaseMiddleware
 from aiogram.types import Message, CallbackQuery, TelegramObject
 
 from app.core.database import get_session_maker
+from app.repositories.referral_repo import ReferralRepository
 from app.repositories.user_repo import UserRepository
+from app.services.referral_service import ReferralService
 from app.services.user_service import UserService
 
 logger = logging.getLogger(__name__)
+
 
 
 class UserContextMiddleware(BaseMiddleware):
@@ -31,7 +34,7 @@ class UserContextMiddleware(BaseMiddleware):
         ref_telegram_id = None
         if isinstance(event, Message) and event.text and event.text.startswith("/start "):
             parts = event.text.split(maxsplit=1)
-            if len(parts) > 1 and parts[1].startswith("ref_"):
+            if len(parts) > 1 and parts[1].strip().startswith("ref_"):
                 try:
                     ref_telegram_id = int(parts[1][4:].strip())
                 except ValueError:
@@ -42,27 +45,76 @@ class UserContextMiddleware(BaseMiddleware):
             async with session_factory() as session:
                 user_repo = UserRepository(session)
                 user_svc = UserService(user_repo)
-                inviter = await user_repo.get_by_telegram_id(ref_telegram_id) if ref_telegram_id else None
-                invited_by_id = inviter.id if inviter else None
-                user, created = await user_svc.get_or_create(
-                    telegram_id=from_user.id,
-                    username=from_user.username,
-                    first_name=from_user.first_name or "",
-                    language=None,
-                    invited_by_id=invited_by_id,
-                )
-                if inviter and created and inviter.id != user.id:
-                    from app.repositories.referral_repo import ReferralRepository
-                    from app.services.referral_service import ReferralService
+                user: Any = None
+                referral_notify: tuple[int, str] | None = None
+
+                existing_user = await user_repo.get_by_telegram_id(from_user.id)
+                if existing_user:
+                    user = existing_user
+                elif ref_telegram_id is not None:
                     ref_repo = ReferralRepository(session)
                     ref_svc = ReferralService(ref_repo, user_repo)
-                    await ref_svc.apply_referral(user, inviter.id)
+                    try:
+                        result = await ref_svc.process_referral(
+                            session,
+                            inviter_tg_id=ref_telegram_id,
+                            new_user_tg_id=from_user.id,
+                            username=from_user.username,
+                            first_name=from_user.first_name or "",
+                        )
+                        if result.success and result.new_user:
+                            user = result.new_user
+                            if result.inviter_telegram_id is not None:
+                                referral_notify = (result.inviter_telegram_id, result.inviter_lang or "en")
+                        else:
+                            user, _ = await user_svc.get_or_create(
+                                telegram_id=from_user.id,
+                                username=from_user.username,
+                                first_name=from_user.first_name or "",
+                                language=None,
+                                invited_by_id=None,
+                            )
+                    except Exception as ref_err:
+                        logger.warning("Referral process failed, creating user without referral: %s", ref_err)
+                        await session.rollback()
+                        user, _ = await user_svc.get_or_create(
+                            telegram_id=from_user.id,
+                            username=from_user.username,
+                            first_name=from_user.first_name or "",
+                            language=None,
+                            invited_by_id=None,
+                        )
+                else:
+                    user, _ = await user_svc.get_or_create(
+                        telegram_id=from_user.id,
+                        username=from_user.username,
+                        first_name=from_user.first_name or "",
+                        language=None,
+                        invited_by_id=None,
+                    )
+
                 data["user"] = user
                 data["session"] = session
                 data["user_service"] = user_svc
+                data["referral_notify"] = referral_notify
+                bot = None
+                if isinstance(event, Message) and hasattr(event, "bot"):
+                    bot = event.bot
+                elif isinstance(event, CallbackQuery) and event.message:
+                    bot = event.message.bot
+                data["_referral_bot"] = bot
+
                 try:
                     result = await handler(event, data)
                     await session.commit()
+                    if referral_notify and data.get("_referral_bot"):
+                        inviter_tg_id, lang = referral_notify
+                        from app.i18n.loader import get_texts
+                        msg = get_texts(lang).get("referral_success", "🎉 +7 days subscription!")
+                        try:
+                            await data["_referral_bot"].send_message(chat_id=inviter_tg_id, text=msg)
+                        except Exception as e:
+                            logger.warning("Referral notification failed inviter=%s err=%s", inviter_tg_id, e)
                     return result
                 except Exception:
                     await session.rollback()

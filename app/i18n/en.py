@@ -44,6 +44,7 @@ TEXTS = {
     "enter_custom_habit": "Enter habit name (up to 100 characters)",
     "custom_habit_invalid": "Name must be 1–100 characters",
     "referral_info": "Invite a friend — get +7 days subscription for each.",
+    "referral_success": "🎉 Congratulations!\n\nYou invited a friend and received a gift — +7 days of subscription.\n\nThank you for being with us ❤️",
     "tariff_1m": "1 month",
     "tariff_3m": "3 months",
     "tariff_6m": "6 months",

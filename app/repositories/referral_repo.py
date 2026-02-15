@@ -16,6 +16,10 @@ class ReferralRepository:
         await self.session.flush()
         return ref
 
+    async def get_by_invited_id(self, invited_id: int) -> Referral | None:
+        result = await self.session.execute(select(Referral).where(Referral.invited_id == invited_id))
+        return result.scalar_one_or_none()
+
     async def exists(self, inviter_id: int, invited_id: int) -> bool:
         result = await self.session.execute(
             select(Referral).where(

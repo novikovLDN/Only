@@ -22,6 +22,7 @@ class User(Base):
     invited_by_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     timezone: Mapped[str] = mapped_column(String(50), nullable=False, default="UTC")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     invited_by: Mapped["User | None"] = relationship("User", remote_side="User.id")
     habits: Mapped[list["Habit"]] = relationship("Habit", back_populates="user", cascade="all, delete-orphan")
@@ -68,8 +69,8 @@ class Referral(Base):
     __tablename__ = "referrals"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    inviter_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    invited_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    inviter_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    invited_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     inviter: Mapped["User"] = relationship("User", foreign_keys=[inviter_id], back_populates="referrals_given")

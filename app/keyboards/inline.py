@@ -119,7 +119,7 @@ def profile_menu(t, has_subscription: bool) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def loyalty_menu(t) -> InlineKeyboardMarkup:
+def loyalty_menu(t, referral_link: str = "") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=t("share_link"), callback_data="share_link")],
         [InlineKeyboardButton(text=t("details"), callback_data="loyalty_details")],
