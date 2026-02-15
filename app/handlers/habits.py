@@ -77,13 +77,16 @@ async def show_presets(message: Message, user, t, is_premium: bool = False) -> N
 
 
 @router.callback_query(F.data == "premium")
-async def premium_locked(callback: CallbackQuery, t) -> None:
-    await callback.message.edit_text(
+async def premium_locked(callback: CallbackQuery, user, t) -> None:
+    from app.keyboards.reply import buy_subscription_kb
+
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+    await callback.message.answer(
         t("premium_required"),
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=t("buy_subscription"), callback_data="to_subscription")],
-            [InlineKeyboardButton(text=t("back"), callback_data="back_main")],
-        ]),
+        reply_markup=buy_subscription_kb(user.language),
     )
     await callback.answer()
 
@@ -162,7 +165,7 @@ async def times_done(callback: CallbackQuery, user, t, session, state: FSMContex
     await habit_svc.create_habit(user, title, False, days, times_dt)
     await session.commit()
     await state.clear()
-    from app.keyboards.reply import main_menu
+    from app.keyboards.reply import main_menu_kb
     await callback.message.edit_text(t("habit_saved", title=title))
-    await callback.message.answer(t("welcome", username=user.first_name or "User"), reply_markup=main_menu(t))
+    await callback.message.answer(t("welcome", username=user.first_name or "User"), reply_markup=main_menu_kb(user.language))
     await callback.answer()

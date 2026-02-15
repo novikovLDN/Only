@@ -1,21 +1,40 @@
 """Subscription and payment handlers."""
 
 from aiogram import Router, F
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import CallbackQuery, Message, InlineKeyboardButton, InlineKeyboardMarkup
 
 from app.core.enums import Tariff, TARIFF_PRICES_RUB
+from app.keyboards.reply import back_kb
 
 router = Router(name="subscription")
 
+_BUY_SUB = ["Купить подписку", "Buy subscription"]
 
-@router.callback_query(F.data == "to_subscription")
-async def to_subscription(callback: CallbackQuery, user, t) -> None:
+
+@router.message(F.text.in_(_BUY_SUB))
+async def to_subscription_msg(message: Message, user, t) -> None:
     rows = []
     for tariff, price in TARIFF_PRICES_RUB.items():
         label = f"{tariff.value} — {price} RUB"
         rows.append([InlineKeyboardButton(text=label, callback_data=f"buy_{tariff.value}")])
     rows.append([InlineKeyboardButton(text=t("back"), callback_data="back_main")])
-    await callback.message.edit_text(t("buy_subscription"), reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
+    await message.answer(
+        t("buy_subscription"),
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+    )
+
+
+@router.callback_query(F.data == "to_subscription")
+async def to_subscription_cb(callback: CallbackQuery, user, t) -> None:
+    rows = []
+    for tariff, price in TARIFF_PRICES_RUB.items():
+        label = f"{tariff.value} — {price} RUB"
+        rows.append([InlineKeyboardButton(text=label, callback_data=f"buy_{tariff.value}")])
+    rows.append([InlineKeyboardButton(text=t("back"), callback_data="back_main")])
+    await callback.message.edit_text(
+        t("buy_subscription"),
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+    )
     await callback.answer()
 
 
@@ -39,8 +58,6 @@ async def buy_subscription(callback: CallbackQuery, user, t, session) -> None:
     await callback.message.answer(
         f"Invoice: {payment.id}, amount {payment.amount} RUB. "
         "Crypto Bot / Telegram Payments integration placeholder.",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=t("back"), callback_data="back_main")],
-        ]),
+        reply_markup=back_kb(user.language),
     )
     await callback.answer()

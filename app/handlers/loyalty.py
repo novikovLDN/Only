@@ -1,7 +1,9 @@
-"""Loyalty / referral program."""
+"""Loyalty / referral program — reply keyboard."""
 
 from aiogram import Router
-from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import Message
+
+from app.keyboards.reply import main_menu_kb, back_kb
 
 router = Router(name="loyalty")
 
@@ -9,7 +11,6 @@ router = Router(name="loyalty")
 async def show_loyalty(message: Message, user, t, session=None) -> None:
     from app.core.database import get_session_maker
     from app.repositories.referral_repo import ReferralRepository
-    from app.keyboards.reply import main_menu
 
     if session is None:
         sm = get_session_maker()
@@ -19,16 +20,10 @@ async def show_loyalty(message: Message, user, t, session=None) -> None:
     else:
         ref_repo = ReferralRepository(session)
         count = await ref_repo.count_by_inviter(user.id)
+
     bot = message.bot
     me = await bot.get_me()
     username = me.username if me else "your_bot"
     link = f"https://t.me/{username}?start=ref_{user.telegram_id}"
     text = f"{t('referral_link')}\n{link}\n\n{t('invited_count', count=count)}"
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=t("share_link"), url=f"https://t.me/share/url?url={link}&text=Join%20me!")],
-        [InlineKeyboardButton(text=t("back"), callback_data="back_main")],
-    ])
-    await message.answer(text, reply_markup=kb)
-
-
-# back_main handled by main_menu router
+    await message.answer(text, reply_markup=back_kb(user.language))

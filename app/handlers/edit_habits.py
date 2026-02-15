@@ -10,12 +10,12 @@ router = Router(name="edit_habits")
 
 async def show_edit_habits(message: Message, user, t, session) -> None:
     from app.repositories.habit_repo import HabitRepository
-    from app.keyboards.reply import main_menu
+    from app.keyboards.reply import main_menu_kb
 
     habit_repo = HabitRepository(session)
     habits = await habit_repo.get_user_habits(user.id)
     if not habits:
-        await message.answer(t("no_habits"), reply_markup=main_menu(t))
+        await message.answer(t("no_habits"), reply_markup=main_menu_kb(user.language))
         return
     rows = []
     for h in habits:
@@ -57,7 +57,7 @@ async def back_edit(callback: CallbackQuery, user, t, session) -> None:
 async def delete_habit(callback: CallbackQuery, user, t, session) -> None:
     habit_id = int(callback.data.split("_")[2])
     from app.repositories.habit_repo import HabitRepository
-    from app.keyboards.reply import main_menu
+    from app.keyboards.reply import main_menu_kb
 
     habit_repo = HabitRepository(session)
     habit = await habit_repo.get_by_id(habit_id)
@@ -65,5 +65,5 @@ async def delete_habit(callback: CallbackQuery, user, t, session) -> None:
         await habit_repo.delete(habit)
         await session.commit()
     await callback.message.edit_text(t("habit_deleted"))
-    await callback.message.answer(t("welcome", username=user.first_name or "User"), reply_markup=main_menu(t))
+    await callback.message.answer(t("welcome", username=user.first_name or "User"), reply_markup=main_menu_kb(user.language))
     await callback.answer()
