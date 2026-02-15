@@ -56,6 +56,10 @@ async def main() -> None:
         logger.error("BOT_TOKEN not set")
         sys.exit(1)
 
+    _url = settings.database_url
+    _safe = _url.split("@")[-1] if "@" in _url else "***"
+    logger.info("DATABASE_URL (host): %s", _safe)
+
     await init_db()
     bot, dp = _create_bot_and_dp()
     setup_scheduler(bot)

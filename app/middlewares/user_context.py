@@ -1,5 +1,6 @@
 """User context middleware — inject user and session."""
 
+import logging
 from typing import Any, Awaitable, Callable
 
 from aiogram import BaseMiddleware
@@ -8,6 +9,8 @@ from aiogram.types import Message, CallbackQuery, TelegramObject
 from app.core.database import get_session_maker
 from app.repositories.user_repo import UserRepository
 from app.services.user_service import UserService
+
+logger = logging.getLogger(__name__)
 
 
 class UserContextMiddleware(BaseMiddleware):
@@ -34,32 +37,40 @@ class UserContextMiddleware(BaseMiddleware):
                 except ValueError:
                     pass
 
-        session_factory = get_session_maker()
-        async with session_factory() as session:
-            user_repo = UserRepository(session)
-            user_svc = UserService(user_repo)
-            inviter = await user_repo.get_by_telegram_id(ref_telegram_id) if ref_telegram_id else None
-            invited_by_id = inviter.id if inviter else None
-            user, created = await user_svc.get_or_create(
-                telegram_id=from_user.id,
-                username=from_user.username,
-                first_name=from_user.first_name or "",
-                language=from_user.language_code or "en",
-                invited_by_id=invited_by_id,
-            )
-            if inviter and created and inviter.id != user.id:
-                from app.repositories.referral_repo import ReferralRepository
-                from app.services.referral_service import ReferralService
-                ref_repo = ReferralRepository(session)
-                ref_svc = ReferralService(ref_repo, user_repo)
-                await ref_svc.apply_referral(user, inviter.id)
-            data["user"] = user
-            data["session"] = session
-            data["user_service"] = user_svc
-            try:
-                result = await handler(event, data)
-                await session.commit()
-                return result
-            except Exception:
-                await session.rollback()
-                raise
+        try:
+            session_factory = get_session_maker()
+            async with session_factory() as session:
+                user_repo = UserRepository(session)
+                user_svc = UserService(user_repo)
+                inviter = await user_repo.get_by_telegram_id(ref_telegram_id) if ref_telegram_id else None
+                invited_by_id = inviter.id if inviter else None
+                user, created = await user_svc.get_or_create(
+                    telegram_id=from_user.id,
+                    username=from_user.username,
+                    first_name=from_user.first_name or "",
+                    language=from_user.language_code or "en",
+                    invited_by_id=invited_by_id,
+                )
+                if inviter and created and inviter.id != user.id:
+                    from app.repositories.referral_repo import ReferralRepository
+                    from app.services.referral_service import ReferralService
+                    ref_repo = ReferralRepository(session)
+                    ref_svc = ReferralService(ref_repo, user_repo)
+                    await ref_svc.apply_referral(user, inviter.id)
+                data["user"] = user
+                data["session"] = session
+                data["user_service"] = user_svc
+                try:
+                    result = await handler(event, data)
+                    await session.commit()
+                    return result
+                except Exception:
+                    await session.rollback()
+                    raise
+        except Exception as e:
+            logger.exception("User load failed: %s", e)
+            if isinstance(event, Message):
+                await event.answer("Service temporarily unavailable. Please try again later.")
+            elif isinstance(event, CallbackQuery):
+                await event.answer("Service temporarily unavailable.", show_alert=True)
+            return
