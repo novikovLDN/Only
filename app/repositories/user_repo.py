@@ -1,0 +1,72 @@
+"""User repository."""
+
+from datetime import datetime, timedelta, timezone
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.models import Referral, User
+
+
+class UserRepository:
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def get_by_id(self, user_id: int) -> User | None:
+        result = await self.session.execute(select(User).where(User.id == user_id))
+        return result.scalar_one_or_none()
+
+    async def get_by_telegram_id(self, telegram_id: int) -> User | None:
+        result = await self.session.execute(select(User).where(User.telegram_id == telegram_id))
+        return result.scalar_one_or_none()
+
+    async def create(
+        self,
+        telegram_id: int,
+        username: str | None,
+        first_name: str,
+        language: str = "en",
+        invited_by_id: int | None = None,
+    ) -> User:
+        user = User(
+            telegram_id=telegram_id,
+            username=username,
+            first_name=first_name,
+            language=language,
+            invited_by_id=invited_by_id,
+        )
+        self.session.add(user)
+        await self.session.flush()
+        return user
+
+    async def get_or_create(
+        self,
+        telegram_id: int,
+        username: str | None,
+        first_name: str,
+        language: str = "en",
+        invited_by_id: int | None = None,
+    ) -> tuple[User, bool]:
+        user = await self.get_by_telegram_id(telegram_id)
+        if user:
+            return user, False
+        user = await self.create(telegram_id, username, first_name, language, invited_by_id)
+        return user, True
+
+    async def update_language(self, user: User, language: str) -> None:
+        user.language = language
+        await self.session.flush()
+
+    async def extend_subscription(self, user: User, days: int) -> None:
+        now = datetime.now(timezone.utc)
+        if user.subscription_until and user.subscription_until > now:
+            user.subscription_until = user.subscription_until + timedelta(days=days)
+        else:
+            user.subscription_until = now + timedelta(days=days)
+        await self.session.flush()
+
+    async def count_referrals(self, user_id: int) -> int:
+        result = await self.session.execute(
+            select(Referral).where(Referral.inviter_id == user_id)
+        )
+        return len(result.scalars().all())
