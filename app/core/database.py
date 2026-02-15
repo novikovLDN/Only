@@ -1,6 +1,8 @@
 """Database connection and session management."""
 
 import logging
+import subprocess
+import sys
 from collections.abc import AsyncGenerator
 
 from sqlalchemy import text
@@ -57,6 +59,18 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
             raise
         finally:
             await session.close()
+
+
+def run_migrations() -> None:
+    """Run Alembic migrations. Exit immediately on failure."""
+    result = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        logger.error("Migration failed: %s", result.stderr or result.stdout)
+        raise RuntimeError(f"Alembic migration failed: {result.stderr or result.stdout}")
 
 
 async def init_db() -> None:

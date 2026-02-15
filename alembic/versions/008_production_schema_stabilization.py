@@ -83,21 +83,15 @@ def upgrade() -> None:
     op.execute("CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id)")
     op.execute("CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status)")
 
-    # 3) habit_logs
+    # 3) habit_logs — created_at only; user_id + indexes in 009 (schema drift fix)
     op.execute("ALTER TABLE habit_logs ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()")
-    op.execute("CREATE INDEX IF NOT EXISTS idx_habit_logs_user_id ON habit_logs(user_id)")
-    op.execute("CREATE INDEX IF NOT EXISTS idx_habit_logs_habit_id ON habit_logs(habit_id)")
-    op.execute("CREATE INDEX IF NOT EXISTS idx_habit_logs_created_at ON habit_logs(created_at)")
 
     # 4) motivation_phrases
     op.execute("ALTER TABLE motivation_phrases ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()")
 
 
 def downgrade() -> None:
-    # Indexes — safe to drop
-    op.execute("DROP INDEX IF EXISTS idx_habit_logs_created_at")
-    op.execute("DROP INDEX IF EXISTS idx_habit_logs_habit_id")
-    op.execute("DROP INDEX IF EXISTS idx_habit_logs_user_id")
+    # Indexes — safe to drop (habit_logs indexes in 009 downgrade)
     op.execute("DROP INDEX IF EXISTS idx_payments_status")
     op.execute("DROP INDEX IF EXISTS idx_payments_user_id")
     op.execute("DROP INDEX IF EXISTS idx_users_subscription_until")

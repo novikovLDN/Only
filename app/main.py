@@ -64,7 +64,7 @@ def _create_bot_and_dp() -> tuple[Bot, Dispatcher]:
 
 
 async def main() -> None:
-    from app.core.database import init_db, close_db
+    from app.core.database import init_db, close_db, run_migrations
     from app.scheduler import setup_scheduler, shutdown_scheduler
 
     setup_logging()
@@ -75,6 +75,12 @@ async def main() -> None:
     _url = settings.database_url
     _safe = _url.split("@")[-1] if "@" in _url else "***"
     logger.info("DATABASE_URL (host): %s", _safe)
+
+    try:
+        run_migrations()
+    except Exception as e:
+        logger.exception("Migration failed: %s", e)
+        sys.exit(1)
 
     await init_db()
     bot, dp = _create_bot_and_dp()
