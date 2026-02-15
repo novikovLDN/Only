@@ -43,8 +43,12 @@ async def run_reminders(bot) -> None:
                 if tt.hour == now_hour and tt.minute == now_min:
                     try:
                         from app.utils.i18n import TRANSLATIONS
-                        lang = getattr(user, "language", None) or "en"
-                        texts = TRANSLATIONS.get(lang, TRANSLATIONS["en"])
+                        lang = getattr(user, "language", None)
+                        if lang not in ("ru", "en"):
+                            if lang is not None:
+                                logger.critical("Scheduler: invalid user.language=%r for user %s, using 'ru'", lang, user.telegram_id)
+                            lang = "ru"
+                        texts = TRANSLATIONS.get(lang, TRANSLATIONS["ru"])
                         msg = texts.get("reminder", "⏰ Time for: {habit_name}").format(habit_name=habit.title)
                         await bot.send_message(
                             chat_id=user.telegram_id,

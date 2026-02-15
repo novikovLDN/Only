@@ -51,6 +51,7 @@ class UserContextMiddleware(BaseMiddleware):
                 existing_user = await user_repo.get_by_telegram_id(from_user.id)
                 if existing_user:
                     user = existing_user
+                    data["user_just_created"] = False
                 elif ref_telegram_id is not None:
                     ref_repo = ReferralRepository(session)
                     ref_svc = ReferralService(ref_repo, user_repo)
@@ -64,34 +65,38 @@ class UserContextMiddleware(BaseMiddleware):
                         )
                         if result.success and result.new_user:
                             user = result.new_user
+                            data["user_just_created"] = True
                             if result.inviter_telegram_id is not None:
                                 referral_notify = (result.inviter_telegram_id, result.inviter_lang or "en")
                         else:
-                            user, _ = await user_svc.get_or_create(
+                            user, created = await user_svc.get_or_create(
                                 telegram_id=from_user.id,
                                 username=from_user.username,
                                 first_name=from_user.first_name or "",
                                 language=None,
                                 invited_by_id=None,
                             )
+                            data["user_just_created"] = created
                     except Exception as ref_err:
                         logger.warning("Referral process failed, creating user without referral: %s", ref_err)
                         await session.rollback()
-                        user, _ = await user_svc.get_or_create(
+                        user, created = await user_svc.get_or_create(
                             telegram_id=from_user.id,
                             username=from_user.username,
                             first_name=from_user.first_name or "",
                             language=None,
                             invited_by_id=None,
                         )
+                        data["user_just_created"] = created
                 else:
-                    user, _ = await user_svc.get_or_create(
+                    user, created = await user_svc.get_or_create(
                         telegram_id=from_user.id,
                         username=from_user.username,
                         first_name=from_user.first_name or "",
                         language=None,
                         invited_by_id=None,
                     )
+                    data["user_just_created"] = created
 
                 data["user"] = user
                 data["session"] = session
@@ -110,7 +115,8 @@ class UserContextMiddleware(BaseMiddleware):
                     if referral_notify and data.get("_referral_bot"):
                         inviter_tg_id, lang = referral_notify
                         from app.utils.i18n import TRANSLATIONS
-                        msg = TRANSLATIONS.get(lang, TRANSLATIONS["en"]).get("referral_success", "🎉 +7 days subscription!")
+                        lang = lang if lang in ("ru", "en") else "ru"
+                        msg = TRANSLATIONS.get(lang, TRANSLATIONS["ru"]).get("referral_success", "🎉 +7 days subscription!")
                         try:
                             await data["_referral_bot"].send_message(chat_id=inviter_tg_id, text=msg)
                         except Exception as e:

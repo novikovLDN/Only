@@ -1,11 +1,28 @@
-"""i18n middleware — inject language and t() into handlers."""
+"""i18n middleware — strict language from user.language, no fallback guessing."""
 
+import logging
 from typing import Any, Awaitable, Callable
 
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
 
 from app.utils.i18n import get_presets, get_weekdays, t as i18n_t
+
+logger = logging.getLogger(__name__)
+
+VALID_LANGUAGES = frozenset(("ru", "en"))
+
+
+def _resolve_lang(user: Any) -> str:
+    """user.language is single source of truth. Invalid → 'ru' + log."""
+    if not user or not hasattr(user, "language"):
+        return "ru"
+    raw = getattr(user, "language", None)
+    if raw in VALID_LANGUAGES:
+        return raw
+    if raw is not None and raw not in VALID_LANGUAGES:
+        logger.critical("Invalid user.language=%r, forcing 'ru'", raw)
+    return "ru"
 
 
 class I18nMiddleware(BaseMiddleware):
@@ -16,9 +33,7 @@ class I18nMiddleware(BaseMiddleware):
         data: dict[str, Any],
     ) -> Any:
         user = data.get("user")
-        lang = "en"
-        if user and hasattr(user, "language") and getattr(user, "language", None) in ("ru", "en"):
-            lang = user.language
+        lang = _resolve_lang(user)
         data["lang"] = lang
 
         def _t(key: str, **kw) -> str:

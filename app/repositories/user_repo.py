@@ -28,11 +28,12 @@ class UserRepository:
         language: str | None = None,
         invited_by_id: int | None = None,
     ) -> User:
+        lang = language if language in ("ru", "en") else "ru"
         user = User(
             telegram_id=telegram_id,
             username=username,
             first_name=first_name,
-            language=language,
+            language=lang,
             invited_by_id=invited_by_id,
         )
         self.session.add(user)
@@ -54,7 +55,7 @@ class UserRepository:
         return user, True
 
     async def update_language(self, user: User, language: str) -> None:
-        user.language = language
+        user.language = language if language in ("ru", "en") else "ru"
         await self.session.flush()
 
     async def extend_subscription(self, user: User, days: int) -> None:

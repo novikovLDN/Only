@@ -23,6 +23,6 @@ async def language_cb(callback: CallbackQuery, user, t) -> None:
 
     await callback.message.edit_text(
         lang_select_prompt(),
-        reply_markup=language_select_with_back(t, "settings"),
+        reply_markup=language_select_with_back(t, "settings", return_to="settings"),
     )
     await callback.answer()

@@ -132,10 +132,11 @@ def settings_menu(t) -> InlineKeyboardMarkup:
     ])
 
 
-def language_select_with_back(t, back_callback: str = "back_main") -> InlineKeyboardMarkup:
+def language_select_with_back(t, back_callback: str = "back_main", return_to: str | None = None) -> InlineKeyboardMarkup:
+    suffix = f"_{return_to}" if return_to else ""
     rows = [
-        [InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang_ru")],
-        [InlineKeyboardButton(text="🇺🇸 English", callback_data="lang_en")],
+        [InlineKeyboardButton(text="🇷🇺 Русский", callback_data=f"lang_ru{suffix}")],
+        [InlineKeyboardButton(text="🇺🇸 English", callback_data=f"lang_en{suffix}")],
         [InlineKeyboardButton(text=t("btn.back"), callback_data=back_callback)],
     ]
     return InlineKeyboardMarkup(inline_keyboard=rows)

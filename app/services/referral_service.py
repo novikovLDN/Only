@@ -71,5 +71,5 @@ class ReferralService:
             True,
             new_user,
             inviter.telegram_id,
-            inviter.language or "en",
+            inviter.language if inviter.language in ("ru", "en") else "ru",
         )
