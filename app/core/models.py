@@ -17,7 +17,7 @@ class User(Base):
     telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False, index=True)
     username: Mapped[str | None] = mapped_column(String(255), nullable=True)
     first_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
-    language: Mapped[str | None] = mapped_column(String(5), nullable=True, default="ru")
+    language: Mapped[str] = mapped_column(String(5), nullable=False, default="ru")
     subscription_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     invited_by_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     timezone: Mapped[str] = mapped_column(String(50), nullable=False, default="UTC")

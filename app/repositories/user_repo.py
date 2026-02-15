@@ -62,7 +62,7 @@ class UserRepository:
             telegram_id=telegram_id,
             username=username,
             first_name=first_name or "",
-            language=lang,
+            language=lang,  # NOT NULL, always provided
             invited_by_id=invited_by_id,
             timezone="UTC",
             is_active=True,
