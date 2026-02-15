@@ -5,6 +5,7 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery
 
 from app.keyboards.inline import language_select, main_menu
+from app.keyboards.reply import main_menu_reply
 from app.utils.i18n import lang_select_prompt
 
 router = Router(name="start")
@@ -26,14 +27,14 @@ async def cmd_start(message: Message, user, t, session, user_service, **kwargs) 
         name = user.first_name or "User"
         await message.answer(
             t("main.greeting", first_name=name) + "\n\n" + t("main.subtitle") + "\n\n" + t("main.action_prompt"),
-            reply_markup=main_menu(t),
+            reply_markup=main_menu_reply(t),
         )
 
 
 @router.callback_query(F.data.regexp(r"^lang_(ru|en)(_settings)?$"))
 async def lang_selected(callback: CallbackQuery, user, t, session, user_service) -> None:
     from app.utils.i18n import t as i18n_t
-    from app.keyboards.inline import main_menu as main_menu_kb, settings_menu
+    from app.keyboards.inline import settings_menu
 
     lang = "ru" if "ru" in callback.data else "en"
     return_to_settings = "_settings" in callback.data
@@ -48,8 +49,12 @@ async def lang_selected(callback: CallbackQuery, user, t, session, user_service)
         )
     else:
         name = user.first_name or "User"
-        await callback.message.edit_text(
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+        await callback.message.answer(
             _t("main.greeting", first_name=name) + "\n\n" + _t("main.subtitle") + "\n\n" + _t("main.action_prompt"),
-            reply_markup=main_menu_kb(_t),
+            reply_markup=main_menu_reply(_t),
         )
     await callback.answer()
