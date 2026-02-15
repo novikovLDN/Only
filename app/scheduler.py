@@ -39,12 +39,16 @@ async def run_reminders(bot) -> None:
             now_hour, now_min = now_dt.hour, now_dt.minute
             if today_weekday not in days:
                 continue
-            for t in times:
-                if t.hour == now_hour and t.minute == now_min:
+            for tt in times:
+                if tt.hour == now_hour and tt.minute == now_min:
                     try:
+                        from app.i18n.loader import get_texts
+                        lang = getattr(user, "language", None) or "en"
+                        texts = get_texts(lang)
+                        msg = texts.get("reminder", "⏰ Time for: {habit_name}").format(habit_name=habit.title)
                         await bot.send_message(
                             chat_id=user.telegram_id,
-                            text=f"⏰ Time for: {habit.title}",
+                            text=msg,
                         )
                     except Exception as e:
                         logger.warning("Reminder failed: %s", e)

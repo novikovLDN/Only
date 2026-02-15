@@ -20,7 +20,10 @@ class I18nMiddleware(BaseMiddleware):
         if user and hasattr(user, "language") and getattr(user, "language", None) in ("ru", "en"):
             lang = user.language
         data["lang"] = lang
-        data["t"] = lambda key, **kw: get_texts(lang).get(key, key).format(**kw) if kw else get_texts(lang).get(key, key)
+        def _t(key: str, **kw) -> str:
+            s = get_texts(lang).get(key, key)
+            return s.format(**kw) if kw else s
+        data["t"] = _t
         data["presets"] = get_presets(lang)
         data["weekdays_labels"] = get_weekdays(lang)
         return await handler(event, data)

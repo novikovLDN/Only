@@ -1,42 +1,35 @@
-"""Profile handler — inline only."""
+"""Profile."""
 
 from aiogram import Router
 from aiogram.types import Message
 
-from app.keyboards.inline import back_inline
+from app.keyboards.inline import profile_menu
 
 router = Router(name="profile")
 
 
-async def _get_profile_content(user, t, session=None) -> tuple[str, "InlineKeyboardMarkup"]:
-    from app.core.database import get_session_maker
+async def build_profile_content(user, t, session) -> tuple[str, "InlineKeyboardMarkup"]:
     from app.repositories.referral_repo import ReferralRepository
+    from datetime import datetime, timezone
 
-    lang = user.language or "en"
-    if session:
-        ref_repo = ReferralRepository(session)
-        count = await ref_repo.count_by_inviter(user.id)
-    else:
-        sm = get_session_maker()
-        async with sm() as s:
-            ref_repo = ReferralRepository(s)
-            count = await ref_repo.count_by_inviter(user.id)
-
+    ref_repo = ReferralRepository(session)
+    count = await ref_repo.count_by_inviter(user.id)
     reg_date = user.created_at.strftime("%d.%m.%Y") if user.created_at else "—"
     sub_until = (
         user.subscription_until.strftime("%d.%m.%Y")
         if user.subscription_until
         else t("no_subscription")
     )
+    has_sub = user.subscription_until and user.subscription_until > datetime.now(timezone.utc)
     text = (
         f"{t('profile')}\n"
         f"{t('registration_date', date=reg_date)}\n"
         f"{t('invited_count', count=count)}\n"
         f"{t('subscription_until', date=sub_until)}"
     )
-    return text, back_inline(lang)
+    return text, profile_menu(t, has_sub)
 
 
 async def show_profile(message: Message, user, t, session=None) -> None:
-    text, kb = await _get_profile_content(user, t, session)
+    text, kb = await build_profile_content(user, t, session)
     await message.answer(text, reply_markup=kb)

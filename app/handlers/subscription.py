@@ -1,31 +1,46 @@
-"""Subscription and payment handlers — inline only."""
+"""Subscription and payment."""
 
 from aiogram import Router, F
-from aiogram.types import CallbackQuery, Message, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import CallbackQuery
 
-from app.core.enums import Tariff, TARIFF_PRICES_RUB
-from app.keyboards.inline import back_inline
+from app.core.enums import Tariff
+from app.keyboards.inline import tariff_select, payment_method_select, back_only
 
 router = Router(name="subscription")
 
 
 @router.callback_query(F.data == "to_subscription")
 async def to_subscription_cb(callback: CallbackQuery, user, t) -> None:
-    rows = []
-    for tariff, price in TARIFF_PRICES_RUB.items():
-        label = f"{tariff.value} — {price} RUB"
-        rows.append([InlineKeyboardButton(text=label, callback_data=f"buy_{tariff.value}")])
-    rows.append([InlineKeyboardButton(text=t("back"), callback_data="back_main")])
     await callback.message.edit_text(
-        t("buy_subscription"),
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+        t("choose_tariff"),
+        reply_markup=tariff_select(t),
     )
     await callback.answer()
 
 
-@router.callback_query(F.data.startswith("buy_"))
-async def buy_subscription(callback: CallbackQuery, user, t, session) -> None:
-    tariff_val = callback.data[4:]
+@router.callback_query(F.data.startswith("tariff_"))
+async def tariff_selected(callback: CallbackQuery, user, t) -> None:
+    tariff_val = callback.data.replace("tariff_", "")
+    try:
+        Tariff(tariff_val)
+    except ValueError:
+        await callback.answer()
+        return
+    await callback.message.edit_text(
+        t("choose_payment_method"),
+        reply_markup=payment_method_select(t, tariff_val),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("pay_"))
+async def payment_selected(callback: CallbackQuery, user, t, session) -> None:
+    parts = callback.data.split("_", 2)
+    if len(parts) < 3:
+        await callback.answer()
+        return
+    provider = parts[1]
+    tariff_val = parts[2]
     try:
         tariff = Tariff(tariff_val)
     except ValueError:
@@ -38,12 +53,10 @@ async def buy_subscription(callback: CallbackQuery, user, t, session) -> None:
     pay_repo = PaymentRepository(session)
     user_repo = UserRepository(session)
     pay_svc = PaymentService(pay_repo, user_repo)
-    payment = await pay_svc.create_payment(user, tariff, "cryptobot")
+    payment = await pay_svc.create_payment(user, tariff, provider)
     await session.commit()
-    lang = user.language or "en"
     await callback.message.edit_text(
-        f"Invoice: {payment.id}, amount {payment.amount} RUB. "
-        "Crypto Bot / Telegram Payments integration placeholder.",
-        reply_markup=back_inline(lang),
+        f"Invoice #{payment.id}, {payment.amount}₽ ({provider}) — stub",
+        reply_markup=back_only(t, "to_subscription"),
     )
     await callback.answer()
