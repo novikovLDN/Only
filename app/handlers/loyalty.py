@@ -1,9 +1,9 @@
-"""Loyalty / referral program — reply keyboard."""
+"""Loyalty / referral program — inline only."""
 
 from aiogram import Router
 from aiogram.types import Message
 
-from app.keyboards.reply import main_menu_kb, back_kb
+from app.keyboards.inline import back_inline
 
 router = Router(name="loyalty")
 
@@ -12,6 +12,7 @@ async def show_loyalty(message: Message, user, t, session=None) -> None:
     from app.core.database import get_session_maker
     from app.repositories.referral_repo import ReferralRepository
 
+    lang = user.language or "en"
     if session is None:
         sm = get_session_maker()
         async with sm() as s:
@@ -26,4 +27,4 @@ async def show_loyalty(message: Message, user, t, session=None) -> None:
     username = me.username if me else "your_bot"
     link = f"https://t.me/{username}?start=ref_{user.telegram_id}"
     text = f"{t('referral_link')}\n{link}\n\n{t('invited_count', count=count)}"
-    await message.answer(text, reply_markup=back_kb(user.language))
+    await message.answer(text, reply_markup=back_inline(lang))

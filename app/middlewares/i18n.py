@@ -17,8 +17,8 @@ class I18nMiddleware(BaseMiddleware):
     ) -> Any:
         user = data.get("user")
         lang = "en"
-        if user and hasattr(user, "language"):
-            lang = getattr(user, "language", "en") or "en"
+        if user and hasattr(user, "language") and getattr(user, "language", None) in ("ru", "en"):
+            lang = user.language
         data["lang"] = lang
         data["t"] = lambda key, **kw: get_texts(lang).get(key, key).format(**kw) if kw else get_texts(lang).get(key, key)
         data["presets"] = get_presets(lang)

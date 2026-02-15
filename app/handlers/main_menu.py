@@ -1,65 +1,68 @@
-"""Main menu — routes via F.text."""
+"""Main menu — callback-based navigation only."""
 
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import CallbackQuery
 
-from app.keyboards.reply import main_menu_kb, back_kb
+from app.keyboards.inline import main_menu as main_menu_kb
 
 router = Router(name="main_menu")
 
-_ADD_HABIT = ["➕ Добавить привычку", "➕ Add Habit"]
-_EDIT_HABITS = ["✏️ Редактировать привычки", "✏️ Edit Habits"]
-_LOYALTY = ["🎁 Программа лояльности", "🎁 Loyalty Program"]
-_SETTINGS = ["⚙️ Настройки", "⚙️ Settings"]
-_BACK = ["⬅️ Назад", "⬅️ Back"]
 
-
-def _welcome(message: Message, user, t) -> str:
+def _welcome(user, t) -> str:
     return t("welcome", username=user.first_name or "User")
 
 
-@router.message(F.text.in_(_ADD_HABIT))
-async def add_habit_route(message: Message, user, t, is_premium: bool = False) -> None:
+@router.callback_query(F.data == "add_habit")
+async def add_habit_cb(callback: CallbackQuery, user, t, is_premium: bool = False) -> None:
     from app.handlers.habits import show_presets
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+    await show_presets(callback.message, user, t, is_premium)
+    await callback.answer()
 
-    await show_presets(message, user, t, is_premium)
 
-
-@router.message(F.text.in_(_EDIT_HABITS))
-async def edit_habits_route(message: Message, user, t, session) -> None:
+@router.callback_query(F.data == "edit_habits")
+async def edit_habits_cb(callback: CallbackQuery, user, t, session) -> None:
     from app.handlers.edit_habits import show_edit_habits
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+    await show_edit_habits(callback.message, user, t, session)
+    await callback.answer()
 
-    await show_edit_habits(message, user, t, session)
 
-
-@router.message(F.text.in_(_LOYALTY))
-async def loyalty_route(message: Message, user, t, session) -> None:
+@router.callback_query(F.data == "loyalty")
+async def loyalty_cb(callback: CallbackQuery, user, t, session) -> None:
     from app.handlers.loyalty import show_loyalty
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+    await show_loyalty(callback.message, user, t, session)
+    await callback.answer()
 
-    await show_loyalty(message, user, t, session)
 
-
-@router.message(F.text.in_(_SETTINGS))
-async def settings_route(message: Message, user, t) -> None:
+@router.callback_query(F.data == "settings")
+async def settings_cb(callback: CallbackQuery, user, t) -> None:
     from app.handlers.settings import show_settings
-
-    await show_settings(message, user, t)
-
-
-@router.message(F.text.in_(_BACK))
-async def back_route(message: Message, user, t, state=None) -> None:
-    if state:
-        await state.clear()
-    await message.answer(_welcome(message, user, t), reply_markup=main_menu_kb(user.language))
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+    await show_settings(callback.message, user, t)
+    await callback.answer()
 
 
 @router.callback_query(F.data == "back_main")
-async def back_main_cb(callback, user, t, state=None) -> None:
+async def back_main_cb(callback: CallbackQuery, user, t, state=None) -> None:
     if state:
         await state.clear()
     try:
         await callback.message.delete()
     except Exception:
         pass
-    await callback.message.answer(_welcome(callback.message, user, t), reply_markup=main_menu_kb(user.language))
+    await callback.message.answer(_welcome(user, t), reply_markup=main_menu_kb(user.language or "en"))
     await callback.answer()

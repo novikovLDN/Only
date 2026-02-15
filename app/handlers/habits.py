@@ -15,7 +15,7 @@ router = Router(name="habits")
 
 
 def _presets_keyboard(user, t, is_premium: bool = False) -> InlineKeyboardMarkup:
-    presets = get_presets(user.language)
+    presets = get_presets(user.language or "en")
     rows = []
     for i in range(0, min(20, len(presets)), 6):
         row = []
@@ -35,8 +35,8 @@ def _presets_keyboard(user, t, is_premium: bool = False) -> InlineKeyboardMarkup
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def _weekdays_keyboard(t, selected: list[int]) -> InlineKeyboardMarkup:
-    weekdays = get_weekdays("en")
+def _weekdays_keyboard(t, selected: list[int], lang: str = "en") -> InlineKeyboardMarkup:
+    weekdays = get_weekdays(lang)
     rows = []
     row = []
     for i, wd in enumerate(weekdays):
@@ -78,15 +78,16 @@ async def show_presets(message: Message, user, t, is_premium: bool = False) -> N
 
 @router.callback_query(F.data == "premium")
 async def premium_locked(callback: CallbackQuery, user, t) -> None:
-    from app.keyboards.reply import buy_subscription_kb
+    from app.keyboards.inline import buy_subscription_inline
 
     try:
         await callback.message.delete()
     except Exception:
         pass
+    lang = user.language or "en"
     await callback.message.answer(
         t("premium_required"),
-        reply_markup=buy_subscription_kb(user.language),
+        reply_markup=buy_subscription_inline(lang, t),
     )
     await callback.answer()
 
@@ -94,16 +95,17 @@ async def premium_locked(callback: CallbackQuery, user, t) -> None:
 @router.callback_query(F.data.startswith("preset_"))
 async def preset_selected(callback: CallbackQuery, user, t, state: FSMContext) -> None:
     idx = int(callback.data.split("_")[1])
-    presets = get_presets(user.language)
+    presets = get_presets(user.language or "en")
     title = presets[idx]
     await state.update_data(habit_title=title, is_custom=False, selected_days=[], selected_times=[])
     await state.set_state("habit:weekdays")
-    await callback.message.edit_text(t("select_weekdays"), reply_markup=_weekdays_keyboard(t, []))
+    lang = user.language or "en"
+    await callback.message.edit_text(t("select_weekdays"), reply_markup=_weekdays_keyboard(t, [], lang))
     await callback.answer()
 
 
 @router.callback_query(F.data.startswith("day_"), F.data != "days_done")
-async def day_toggle(callback: CallbackQuery, t, state: FSMContext) -> None:
+async def day_toggle(callback: CallbackQuery, user, t, state: FSMContext) -> None:
     idx = int(callback.data.split("_")[1])
     data = await state.get_data()
     days: list = data.get("selected_days", [])
@@ -113,7 +115,8 @@ async def day_toggle(callback: CallbackQuery, t, state: FSMContext) -> None:
         days.append(idx)
     days.sort()
     await state.update_data(selected_days=days)
-    await callback.message.edit_reply_markup(reply_markup=_weekdays_keyboard(t, days))
+    lang = user.language or "en"
+    await callback.message.edit_reply_markup(reply_markup=_weekdays_keyboard(t, days, lang))
     await callback.answer()
 
 
@@ -122,7 +125,7 @@ async def days_done(callback: CallbackQuery, user, t, state: FSMContext) -> None
     data = await state.get_data()
     days = data.get("selected_days", [])
     if not days:
-        await callback.answer("Select at least one day", show_alert=True)
+        await callback.answer(t("select_at_least_one_day"), show_alert=True)
         return
     await state.update_data(selected_days=days)
     await state.set_state("habit:times")
@@ -154,7 +157,7 @@ async def times_done(callback: CallbackQuery, user, t, session, state: FSMContex
     data = await state.get_data()
     times = data.get("selected_times", [])
     if not times:
-        await callback.answer("Select at least one time", show_alert=True)
+        await callback.answer(t("select_at_least_one_time"), show_alert=True)
         return
     title = data.get("habit_title", "")
     days = data.get("selected_days", [])
@@ -165,7 +168,7 @@ async def times_done(callback: CallbackQuery, user, t, session, state: FSMContex
     await habit_svc.create_habit(user, title, False, days, times_dt)
     await session.commit()
     await state.clear()
-    from app.keyboards.reply import main_menu_kb
+    from app.keyboards.inline import main_menu
     await callback.message.edit_text(t("habit_saved", title=title))
-    await callback.message.answer(t("welcome", username=user.first_name or "User"), reply_markup=main_menu_kb(user.language))
+    await callback.message.answer(t("welcome", username=user.first_name or "User"), reply_markup=main_menu(user.language or "en"))
     await callback.answer()

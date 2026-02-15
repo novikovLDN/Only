@@ -13,7 +13,7 @@ class UserService:
         telegram_id: int,
         username: str | None,
         first_name: str,
-        language: str = "en",
+        language: str | None = None,
         invited_by_id: int | None = None,
     ) -> tuple[User, bool]:
         return await self.repo.get_or_create(

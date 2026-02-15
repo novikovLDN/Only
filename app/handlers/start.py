@@ -1,38 +1,48 @@
-"""Start and language selection handlers."""
+"""Start and language selection handlers — inline only."""
 
 from aiogram import Router, F
 from aiogram.filters import CommandStart
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery
 
-from app.keyboards.reply import main_menu_kb, language_select_kb
+from app.keyboards.inline import language_select, main_menu
 
 router = Router(name="start")
 
 
-def _get_welcome_text(user, t) -> str:
-    return t("welcome", username=user.first_name or "User")
+def _welcome_text(username: str, t) -> str:
+    return t("welcome", username=username or "User")
+
+
+def _lang_select_text() -> str:
+    return "Choose language / Выбери язык:"
 
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, user, t, session, user_service) -> None:
     if user.language in ("ru", "en"):
         await message.answer(
-            _get_welcome_text(user, t),
-            reply_markup=main_menu_kb(user.language),
+            _welcome_text(user.first_name or "User", t),
+            reply_markup=main_menu(user.language),
         )
     else:
         await message.answer(
-            "Choose language / Выбери язык:",
-            reply_markup=language_select_kb(),
+            _lang_select_text(),
+            reply_markup=language_select(),
         )
 
 
-@router.message(F.text.in_(["🇷🇺 Русский", "🇬🇧 English"]))
-async def lang_selected(message: Message, user, t, session, user_service) -> None:
-    lang = "ru" if message.text == "🇷🇺 Русский" else "en"
+@router.callback_query(F.data.in_(["lang_ru", "lang_en"]))
+async def lang_selected(callback: CallbackQuery, user, t, session, user_service) -> None:
+    lang = "ru" if callback.data == "lang_ru" else "en"
     await user_service.update_language(user, lang)
     await session.commit()
-    await message.answer(
-        _get_welcome_text(user, t),
-        reply_markup=main_menu_kb(lang),
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+    await callback.message.answer(
+        _welcome_text(user.first_name or "User", t),
+        reply_markup=main_menu(lang),
     )
+    await callback.answer()
+

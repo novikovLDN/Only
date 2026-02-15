@@ -48,7 +48,7 @@ class UserContextMiddleware(BaseMiddleware):
                     telegram_id=from_user.id,
                     username=from_user.username,
                     first_name=from_user.first_name or "",
-                    language=from_user.language_code or "en",
+                    language=None,
                     invited_by_id=invited_by_id,
                 )
                 if inviter and created and inviter.id != user.id:

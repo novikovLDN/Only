@@ -30,6 +30,8 @@ TEXTS = {
     "delete_habit": "Удалить привычку",
     "habit_deleted": "Привычка удалена.",
     "choose_language": "Выбери язык:",
+    "select_at_least_one_day": "Выбери хотя бы один день",
+    "select_at_least_one_time": "Выбери хотя бы одно время",
     "lang_ru": "Русский",
     "lang_en": "English",
 }

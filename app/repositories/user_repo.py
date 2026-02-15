@@ -25,7 +25,7 @@ class UserRepository:
         telegram_id: int,
         username: str | None,
         first_name: str,
-        language: str = "en",
+        language: str | None = None,
         invited_by_id: int | None = None,
     ) -> User:
         user = User(
@@ -44,7 +44,7 @@ class UserRepository:
         telegram_id: int,
         username: str | None,
         first_name: str,
-        language: str = "en",
+        language: str | None = None,
         invited_by_id: int | None = None,
     ) -> tuple[User, bool]:
         user = await self.get_by_telegram_id(telegram_id)

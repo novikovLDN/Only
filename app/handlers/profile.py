@@ -1,9 +1,9 @@
-"""Profile handler."""
+"""Profile handler — inline only."""
 
 from aiogram import Router
 from aiogram.types import Message
 
-from app.keyboards.reply import back_kb
+from app.keyboards.inline import back_inline
 
 router = Router(name="profile")
 
@@ -12,6 +12,7 @@ async def show_profile(message: Message, user, t, session=None) -> None:
     from app.core.database import get_session_maker
     from app.repositories.referral_repo import ReferralRepository
 
+    lang = user.language or "en"
     if session:
         ref_repo = ReferralRepository(session)
         count = await ref_repo.count_by_inviter(user.id)
@@ -33,4 +34,4 @@ async def show_profile(message: Message, user, t, session=None) -> None:
         f"{t('invited_count', count=count)}\n"
         f"{t('subscription_until', date=sub_until)}"
     )
-    await message.answer(text, reply_markup=back_kb(user.language))
+    await message.answer(text, reply_markup=back_inline(lang))

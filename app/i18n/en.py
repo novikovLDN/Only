@@ -30,6 +30,8 @@ TEXTS = {
     "delete_habit": "Delete habit",
     "habit_deleted": "Habit deleted.",
     "choose_language": "Choose language:",
+    "select_at_least_one_day": "Select at least one day",
+    "select_at_least_one_time": "Select at least one time",
     "lang_ru": "Русский",
     "lang_en": "English",
 }
