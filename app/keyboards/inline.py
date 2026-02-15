@@ -3,6 +3,8 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from app.utils.i18n import get_presets, get_weekdays
+
+SUPPORT_URL = "https://t.me/asc_support"
 from app.core.constants import HABIT_PRESETS_LIMIT_FREE
 from app.core.enums import Tariff, TARIFF_PRICES_RUB
 
@@ -25,6 +27,7 @@ def main_menu(t) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text=t("btn.edit_habits"), callback_data="edit_habits")],
         [InlineKeyboardButton(text=t("btn.loyalty"), callback_data="loyalty")],
         [InlineKeyboardButton(text=t("btn.settings"), callback_data="settings")],
+        [InlineKeyboardButton(text=t("btn.support"), url=SUPPORT_URL)],
     ])
 
 
@@ -123,7 +126,7 @@ def times_select(t, selected: set[int], callback_prefix: str = "time", done_call
 def settings_menu(t) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=t("settings.my_profile"), callback_data="settings_profile")],
-        [InlineKeyboardButton(text=t("settings.support"), callback_data="support")],
+        [InlineKeyboardButton(text=t("btn.support"), url=SUPPORT_URL)],
         [InlineKeyboardButton(text=t("settings.change_language"), callback_data="settings_lang")],
         [InlineKeyboardButton(text=t("btn.back"), callback_data="back_main")],
     ])
@@ -162,6 +165,7 @@ def tariff_select(t) -> InlineKeyboardMarkup:
         label = t(key, price=price)
         rows.append([InlineKeyboardButton(text=label, callback_data=f"tariff_{tariff.value}")])
     rows.append([InlineKeyboardButton(text=t("btn.back"), callback_data="back_main")])
+    rows.append([InlineKeyboardButton(text=t("btn.support"), url=SUPPORT_URL)])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -170,6 +174,7 @@ def payment_method_select(t, tariff: str) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text=t("subscription.cryptobot"), callback_data=f"pay_cryptobot_{tariff}")],
         [InlineKeyboardButton(text=t("subscription.bank_card"), callback_data=f"pay_card_{tariff}")],
         [InlineKeyboardButton(text=t("btn.back"), callback_data="to_subscription")],
+        [InlineKeyboardButton(text=t("btn.support"), url=SUPPORT_URL)],
     ])
 
 
@@ -177,6 +182,7 @@ def buy_subscription_only(t) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=t("premium.buy"), callback_data="to_subscription")],
         [InlineKeyboardButton(text=t("btn.back"), callback_data="back_main")],
+        [InlineKeyboardButton(text=t("btn.support"), url=SUPPORT_URL)],
     ])
 
 

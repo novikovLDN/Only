@@ -17,17 +17,6 @@ async def profile_cb(callback: CallbackQuery, user, t, session) -> None:
     await callback.answer()
 
 
-@router.callback_query(F.data == "support")
-async def support_cb(callback: CallbackQuery, user, t) -> None:
-    from app.keyboards.inline import back_only
-
-    await callback.message.edit_text(
-        t("settings.support_contact"),
-        reply_markup=back_only(t, "back_main"),
-    )
-    await callback.answer()
-
-
 @router.callback_query(F.data == "settings_lang")
 async def language_cb(callback: CallbackQuery, user, t) -> None:
     from app.utils.i18n import lang_select_prompt
