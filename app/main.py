@@ -58,20 +58,14 @@ async def main() -> None:
 
     await init_db()
     bot, dp = _create_bot_and_dp()
+    setup_scheduler(bot)
 
-    async def on_startup(b: Bot) -> None:
-        setup_scheduler(b)
-        logger.info("Bot started")
-
-    async def on_shutdown(b: Bot) -> None:
+    try:
+        await dp.start_polling(bot)
+    finally:
         shutdown_scheduler()
         await close_db()
         logger.info("Bot stopped")
-
-    dp.startup.register(on_startup)
-    dp.shutdown.register(on_shutdown)
-
-    await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
