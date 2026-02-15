@@ -31,7 +31,7 @@ async def add_habit_cb(callback: CallbackQuery, user, t, is_premium: bool = Fals
 
     if state:
         await state.set_state(AddHabitStates.presets)
-        await state.update_data(preset_page=0, preset_selected=[])
+        await state.update_data(current_page=0, selected_habits=[])
     await show_presets_screen(callback, user, t, is_premium, page=0, selected=frozenset(), state=state)
     await callback.answer()
 

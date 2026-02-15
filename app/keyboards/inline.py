@@ -34,34 +34,56 @@ def back_only(t, callback_data: str = "back_main") -> InlineKeyboardMarkup:
     ])
 
 
-def presets_page(t, lang: str, page: int, selected: set[int], is_premium: bool) -> InlineKeyboardMarkup:
-    presets = get_presets(lang)
-    per_page = 6
-    total_pages = (len(presets) + per_page - 1) // per_page
-    start = page * per_page
-    end = min(start + per_page, len(presets))
+def build_habit_grid(
+    t,
+    habits: list[tuple[int, str]],
+    selected_ids: set[int],
+    page: int,
+    page_size: int = 6,
+    is_premium: bool = True,
+) -> InlineKeyboardMarkup:
+    """2 cols x 3 rows, 6 per page. Left column first, row-by-row."""
+    total_pages = max(1, (len(habits) + page_size - 1) // page_size)
+    page = max(0, min(page, total_pages - 1))
+    start = page * page_size
+    chunk = habits[start : start + page_size]
     rows = []
-    for i in range(start, end):
-        locked = not is_premium and i >= HABIT_PRESETS_LIMIT_FREE
-        mark = "🟢 " if i in selected else "⚪ "
-        if locked:
-            rows.append([InlineKeyboardButton(text=f"🔒 {presets[i]}", callback_data="premium")])
-        else:
-            rows.append([InlineKeyboardButton(text=f"{mark}{presets[i]}", callback_data=f"preset_toggle_{i}")])
-
-    nav = []
-    if page > 0:
-        nav.append(InlineKeyboardButton(text=t("btn.prev"), callback_data=f"preset_page_{page - 1}"))
-    if page < total_pages - 1:
-        nav.append(InlineKeyboardButton(text=t("btn.next"), callback_data=f"preset_page_{page + 1}"))
-    if nav:
-        rows.append(nav)
-
+    for i in range(0, len(chunk), 2):
+        row = []
+        for j in range(2):
+            idx = i + j
+            if idx >= len(chunk):
+                break
+            hid, title = chunk[idx]
+            locked = not is_premium and hid >= HABIT_PRESETS_LIMIT_FREE
+            if locked:
+                row.append(InlineKeyboardButton(text=f"🔒 {title}", callback_data="premium"))
+            else:
+                mark = "✅ " if hid in selected_ids else "⬜ "
+                row.append(InlineKeyboardButton(text=f"{mark}{title}", callback_data=f"habit_toggle:{hid}"))
+        if row:
+            rows.append(row)
+    if total_pages > 1:
+        pagination = []
+        if page > 0:
+            pagination.append(InlineKeyboardButton(text=t("preset.page_prev"), callback_data=f"habit_page:{page - 1}"))
+        pagination.append(InlineKeyboardButton(text=f"{page + 1}/{total_pages}", callback_data="noop"))
+        if page < total_pages - 1:
+            pagination.append(InlineKeyboardButton(text=t("preset.page_next"), callback_data=f"habit_page:{page + 1}"))
+        rows.append(pagination)
     custom_cb = "custom_habit" if is_premium else "premium"
     rows.append([InlineKeyboardButton(text=t("btn.add_custom"), callback_data=custom_cb)])
-    rows.append([InlineKeyboardButton(text=t("btn.done"), callback_data="preset_done")])
-    rows.append([InlineKeyboardButton(text=t("btn.back"), callback_data="back_main")])
+    rows.append([
+        InlineKeyboardButton(text=t("preset.nav_back"), callback_data="habit_back"),
+        InlineKeyboardButton(text=t("preset.nav_next"), callback_data="habit_next"),
+    ])
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def presets_page(t, lang: str, page: int, selected: set[int], is_premium: bool) -> InlineKeyboardMarkup:
+    presets = get_presets(lang)
+    habits = list(enumerate(presets))
+    return build_habit_grid(t, habits, selected, page, 6, is_premium)
 
 
 def weekdays_select(t, selected: set[int], lang: str = "en", callback_prefix: str = "day", back_cb: str = "back_main") -> InlineKeyboardMarkup:
