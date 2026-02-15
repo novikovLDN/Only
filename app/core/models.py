@@ -1,8 +1,8 @@
 """SQLAlchemy models."""
 
-from datetime import datetime, time
+from datetime import date, datetime, time
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Time, func
+from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Integer, String, Text, Time, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -29,6 +29,8 @@ class User(Base):
     referrals_given: Mapped[list["Referral"]] = relationship("Referral", foreign_keys="Referral.inviter_id", back_populates="inviter")
     referrals_received: Mapped[list["Referral"]] = relationship("Referral", foreign_keys="Referral.invited_id", back_populates="invited")
     payments: Mapped[list["Payment"]] = relationship("Payment", back_populates="user")
+    habit_logs: Mapped[list["HabitLog"]] = relationship("HabitLog", back_populates="user", cascade="all, delete-orphan")
+    daily_progress: Mapped[list["DailyProgress"]] = relationship("DailyProgress", back_populates="user", cascade="all, delete-orphan")
 
 
 class Habit(Base):
@@ -43,6 +45,7 @@ class Habit(Base):
     user: Mapped["User"] = relationship("User", back_populates="habits")
     days: Mapped[list["HabitDay"]] = relationship("HabitDay", back_populates="habit", cascade="all, delete-orphan")
     times: Mapped[list["HabitTime"]] = relationship("HabitTime", back_populates="habit", cascade="all, delete-orphan")
+    habit_logs: Mapped[list["HabitLog"]] = relationship("HabitLog", back_populates="habit", cascade="all, delete-orphan")
 
 
 class HabitDay(Base):
@@ -63,6 +66,41 @@ class HabitTime(Base):
     time: Mapped[time] = mapped_column(Time, nullable=False)
 
     habit: Mapped["Habit"] = relationship("Habit", back_populates="times")
+
+
+class MotivationPhrase(Base):
+    __tablename__ = "motivation_phrases"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    language: Mapped[str] = mapped_column(String(5), nullable=False, index=True)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    is_used: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+
+class HabitLog(Base):
+    """Habit completion/decline log. status: pending|completed|declined|missed."""
+    __tablename__ = "habit_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    habit_id: Mapped[int] = mapped_column(Integer, ForeignKey("habits.id", ondelete="CASCADE"), nullable=False, index=True)
+    date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)  # pending, completed, declined, missed
+    reason: Mapped[str | None] = mapped_column(String(50), nullable=True)  # tired, sick, no_want
+
+    user: Mapped["User"] = relationship("User", back_populates="habit_logs")
+    habit: Mapped["Habit"] = relationship("Habit", back_populates="habit_logs")
+
+
+class DailyProgress(Base):
+    __tablename__ = "daily_progress"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    success: Mapped[bool] = mapped_column(Boolean, nullable=False)
+
+    user: Mapped["User"] = relationship("User", back_populates="daily_progress")
 
 
 class Referral(Base):

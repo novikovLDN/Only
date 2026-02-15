@@ -67,6 +67,21 @@ TRANSLATIONS = {
         "habit.delete": "Удалить привычку",
         "habit.deleted": "Привычка удалена.",
         "reminder": "⏰ Время для: {habit_name}",
+        "btn.confirm": "🎉 Подтвердить",
+        "btn.decline": "❌ Отклонить",
+        "decline.are_you_sure": "Ты уверен? Почему?",
+        "decline.reason_tired": "😴 Я устал",
+        "decline.reason_sick": "🤒 Я заболел",
+        "decline.reason_no_want": "🙅 Я не хочу",
+        "decline.back": "⬅ Назад",
+        "decline.understood": "Понял. Завтра будет новый шанс 💪",
+        "progress.title": "📅 Месяц: {month}",
+        "progress.days_done": "{count} / {total} дней выполнено",
+        "progress.no_skips": "🔥 Без пропусков!",
+        "progress.has_skips": "Есть пропуски.",
+        "progress.btn": "📊 Прогресс",
+        "progress.my_missed": "📋 Мои пропущенные привычки",
+        "progress.empty": "Нет данных за этот месяц.",
         "referral_success": "🎉 Поздравляем!\n\nВы пригласили друга и получили подарок — +7 дней подписки.\n\nСпасибо, что вы с нами ❤️",
     },
     "en": {
@@ -135,6 +150,21 @@ TRANSLATIONS = {
         "habit.delete": "Delete habit",
         "habit.deleted": "Habit deleted.",
         "reminder": "⏰ Time for: {habit_name}",
+        "btn.confirm": "🎉 Confirm",
+        "btn.decline": "❌ Decline",
+        "decline.are_you_sure": "Are you sure? Why?",
+        "decline.reason_tired": "😴 I'm tired",
+        "decline.reason_sick": "🤒 I'm sick",
+        "decline.reason_no_want": "🙅 I don't want to",
+        "decline.back": "⬅ Back",
+        "decline.understood": "Got it. Tomorrow's a new chance 💪",
+        "progress.title": "📅 Month: {month}",
+        "progress.days_done": "{count} / {total} days done",
+        "progress.no_skips": "🔥 No skips!",
+        "progress.has_skips": "Some days skipped.",
+        "progress.btn": "📊 Progress",
+        "progress.my_missed": "📋 My missed habits",
+        "progress.empty": "No data for this month.",
         "referral_success": "🎉 Congratulations!\n\nYou invited a friend and received a gift — +7 days of subscription.\n\nThank you for being with us ❤️",
     },
 }
@@ -206,6 +236,40 @@ def get_presets(lang: str) -> list[str]:
 
 def get_weekdays(lang: str) -> list[str]:
     return WEEKDAYS_RU if lang == "ru" else WEEKDAYS_EN
+
+
+MONTH_NAMES_RU = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"]
+MONTH_NAMES_EN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+MONTH_SHORT_RU = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"]
+MONTH_SHORT_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+
+DECLINE_REASON_KEYS = {"decline.reason_tired": "tired", "decline.reason_sick": "sick", "decline.reason_no_want": "no_want"}
+
+REASON_TO_KEY = {"tired": "decline.reason_tired", "sick": "decline.reason_sick", "no_want": "decline.reason_no_want"}
+
+
+def reason_to_text(lang: str, reason: str) -> str:
+    key = REASON_TO_KEY.get(reason, "")
+    return TRANSLATIONS.get(lang, TRANSLATIONS["ru"]).get(key, reason) if key else reason
+
+
+def text_to_decline_reason(text: str) -> str | None:
+    """Map button text to reason code. Check both languages."""
+    for key, reason in DECLINE_REASON_KEYS.items():
+        if TRANSLATIONS.get("ru", {}).get(key) == text or TRANSLATIONS.get("en", {}).get(key) == text:
+            return reason
+    return None
+
+
+def get_month_name(lang: str, month: int) -> str:
+    names = MONTH_NAMES_RU if lang == "ru" else MONTH_NAMES_EN
+    return names[month - 1] if 1 <= month <= 12 else str(month)
+
+
+def format_date_short(lang: str, d) -> str:
+    shorts = MONTH_SHORT_RU if lang == "ru" else MONTH_SHORT_EN
+    return f"{d.day} {shorts[d.month - 1]}"
 
 
 def lang_select_prompt() -> str:

@@ -18,6 +18,7 @@ from app.middlewares.i18n import I18nMiddleware
 from app.middlewares.logging_mw import LoggingMiddleware
 
 from app.handlers import start, main_menu, habits, edit_habits, loyalty, profile, subscription, settings as settings_handler
+from app.handlers import habit_response
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,7 @@ def _create_bot_and_dp() -> tuple[Bot, Dispatcher]:
     dp.callback_query.middleware(SubscriptionMiddleware())
     dp.message.middleware(I18nMiddleware())
     dp.callback_query.middleware(I18nMiddleware())
+    dp.include_router(habit_response.router)
     dp.include_router(start.router)
     dp.include_router(main_menu.router)
     dp.include_router(habits.router)

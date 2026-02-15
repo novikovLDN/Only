@@ -144,6 +144,7 @@ def language_select_with_back(t, back_callback: str = "back_main", return_to: st
 
 def profile_menu(t, has_subscription: bool) -> InlineKeyboardMarkup:
     rows = []
+    rows.append([InlineKeyboardButton(text=t("progress.btn"), callback_data="profile_progress")])
     if not has_subscription:
         rows.append([InlineKeyboardButton(text=t("profile.buy"), callback_data="to_subscription")])
     rows.append([InlineKeyboardButton(text=t("btn.back"), callback_data="back_main")])
@@ -185,6 +186,14 @@ def buy_subscription_only(t) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text=t("btn.back"), callback_data="back_main")],
         [InlineKeyboardButton(text=t("btn.support"), url=SUPPORT_URL)],
     ])
+
+
+def progress_menu(t, has_missed: bool) -> InlineKeyboardMarkup:
+    rows = []
+    if has_missed:
+        rows.append([InlineKeyboardButton(text=t("progress.my_missed"), callback_data="profile_missed")])
+    rows.append([InlineKeyboardButton(text=t("btn.back"), callback_data="settings_profile")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def edit_habit_detail(t, habit_id: int, lang: str = "en", current_days: set[int] | None = None) -> InlineKeyboardMarkup:
