@@ -44,14 +44,34 @@ class UserRepository:
         self,
         telegram_id: int,
         username: str | None,
-        first_name: str,
+        first_name: str | None,
         language: str | None = None,
         invited_by_id: int | None = None,
     ) -> tuple[User, bool]:
-        user = await self.get_by_telegram_id(telegram_id)
+        user = await self.session.scalar(
+            select(User).where(User.telegram_id == telegram_id)
+        )
         if user:
             return user, False
-        user = await self.create(telegram_id, username, first_name, language, invited_by_id)
+
+        lang = language if language in ("ru", "en") else "ru"
+        user = User(
+            telegram_id=telegram_id,
+            username=username,
+            first_name=first_name or "",
+            language=lang,
+            invited_by_id=invited_by_id,
+            timezone="UTC",
+            is_active=True,
+        )
+        self.session.add(user)
+
+        try:
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
+
         return user, True
 
     async def update_language(self, user: User, language: str) -> None:

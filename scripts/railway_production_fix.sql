@@ -1,6 +1,11 @@
 -- CRITICAL PRODUCTION FIX — Run in Railway PostgreSQL → Query
 -- NO DROPS. NO DATA LOSS.
 
+-- STEP 0: Verify schema (run first to confirm required columns exist)
+-- SELECT column_name FROM information_schema.columns WHERE table_name = 'users';
+-- SELECT column_name FROM information_schema.columns WHERE table_name = 'payments';
+-- Required: users(id, telegram_id, language, created_at), payments(id, user_id, tariff, provider, amount, status, created_at)
+
 -- 1️⃣ FIX users.id autoincrement (if column has no sequence)
 -- Run these one by one if DO block fails:
 -- CREATE SEQUENCE IF NOT EXISTS users_id_seq;
