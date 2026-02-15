@@ -169,6 +169,8 @@ async def times_done(callback: CallbackQuery, user, t, session, state: FSMContex
     await session.commit()
     await state.clear()
     from app.keyboards.inline import main_menu
-    await callback.message.edit_text(t("habit_saved", title=title))
-    await callback.message.answer(t("welcome", username=user.first_name or "User"), reply_markup=main_menu(user.language or "en"))
+    await callback.message.edit_text(
+        t("welcome", username=user.first_name or "User"),
+        reply_markup=main_menu(user.language or "en", t),
+    )
     await callback.answer()

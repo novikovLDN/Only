@@ -8,7 +8,7 @@ from app.keyboards.inline import back_inline
 router = Router(name="profile")
 
 
-async def show_profile(message: Message, user, t, session=None) -> None:
+async def _get_profile_content(user, t, session=None) -> tuple[str, "InlineKeyboardMarkup"]:
     from app.core.database import get_session_maker
     from app.repositories.referral_repo import ReferralRepository
 
@@ -34,4 +34,9 @@ async def show_profile(message: Message, user, t, session=None) -> None:
         f"{t('invited_count', count=count)}\n"
         f"{t('subscription_until', date=sub_until)}"
     )
-    await message.answer(text, reply_markup=back_inline(lang))
+    return text, back_inline(lang)
+
+
+async def show_profile(message: Message, user, t, session=None) -> None:
+    text, kb = await _get_profile_content(user, t, session)
+    await message.answer(text, reply_markup=kb)

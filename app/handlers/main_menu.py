@@ -1,4 +1,4 @@
-"""Main menu — callback-based navigation only."""
+"""Main menu — callback-based, edit_text preferred."""
 
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
@@ -14,45 +14,39 @@ def _welcome(user, t) -> str:
 
 @router.callback_query(F.data == "add_habit")
 async def add_habit_cb(callback: CallbackQuery, user, t, is_premium: bool = False) -> None:
-    from app.handlers.habits import show_presets
-    try:
-        await callback.message.delete()
-    except Exception:
-        pass
-    await show_presets(callback.message, user, t, is_premium)
+    from app.handlers.habits import _presets_keyboard
+
+    await callback.message.edit_text(
+        t("select_presets"),
+        reply_markup=_presets_keyboard(user, t, is_premium),
+    )
     await callback.answer()
 
 
 @router.callback_query(F.data == "edit_habits")
 async def edit_habits_cb(callback: CallbackQuery, user, t, session) -> None:
-    from app.handlers.edit_habits import show_edit_habits
-    try:
-        await callback.message.delete()
-    except Exception:
-        pass
-    await show_edit_habits(callback.message, user, t, session)
+    from app.handlers.edit_habits import _build_edit_habits_content
+
+    text, kb = await _build_edit_habits_content(user, t, session)
+    await callback.message.edit_text(text, reply_markup=kb)
     await callback.answer()
 
 
 @router.callback_query(F.data == "loyalty")
 async def loyalty_cb(callback: CallbackQuery, user, t, session) -> None:
-    from app.handlers.loyalty import show_loyalty
-    try:
-        await callback.message.delete()
-    except Exception:
-        pass
-    await show_loyalty(callback.message, user, t, session)
+    from app.handlers.loyalty import _get_loyalty_content
+
+    text, kb = await _get_loyalty_content(user, t, session, callback.message.bot)
+    await callback.message.edit_text(text, reply_markup=kb)
     await callback.answer()
 
 
 @router.callback_query(F.data == "settings")
 async def settings_cb(callback: CallbackQuery, user, t) -> None:
-    from app.handlers.settings import show_settings
-    try:
-        await callback.message.delete()
-    except Exception:
-        pass
-    await show_settings(callback.message, user, t)
+    from app.handlers.settings import _get_settings_content
+
+    text, kb = _get_settings_content(user, t)
+    await callback.message.edit_text(text, reply_markup=kb)
     await callback.answer()
 
 
@@ -60,9 +54,8 @@ async def settings_cb(callback: CallbackQuery, user, t) -> None:
 async def back_main_cb(callback: CallbackQuery, user, t, state=None) -> None:
     if state:
         await state.clear()
-    try:
-        await callback.message.delete()
-    except Exception:
-        pass
-    await callback.message.answer(_welcome(user, t), reply_markup=main_menu_kb(user.language or "en"))
+    await callback.message.edit_text(
+        _welcome(user, t),
+        reply_markup=main_menu_kb(user.language or "en", t),
+    )
     await callback.answer()

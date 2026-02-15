@@ -14,22 +14,13 @@ def language_select(with_back: bool = False, lang: str = "en") -> InlineKeyboard
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def main_menu(lang: str) -> InlineKeyboardMarkup:
-    if lang == "ru":
-        buttons = [
-            [InlineKeyboardButton(text="➕ Добавить привычку", callback_data="add_habit")],
-            [InlineKeyboardButton(text="✏️ Редактировать привычки", callback_data="edit_habits")],
-            [InlineKeyboardButton(text="🎁 Программа лояльности", callback_data="loyalty")],
-            [InlineKeyboardButton(text="⚙️ Настройки", callback_data="settings")],
-        ]
-    else:
-        buttons = [
-            [InlineKeyboardButton(text="➕ Add Habit", callback_data="add_habit")],
-            [InlineKeyboardButton(text="✏️ Edit Habits", callback_data="edit_habits")],
-            [InlineKeyboardButton(text="🎁 Loyalty Program", callback_data="loyalty")],
-            [InlineKeyboardButton(text="⚙️ Settings", callback_data="settings")],
-        ]
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
+def main_menu(lang: str, t) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=t("add_habit"), callback_data="add_habit")],
+        [InlineKeyboardButton(text=t("edit_habits"), callback_data="edit_habits")],
+        [InlineKeyboardButton(text=t("loyalty_program"), callback_data="loyalty")],
+        [InlineKeyboardButton(text=t("settings"), callback_data="settings")],
+    ])
 
 
 def back_inline(lang: str, callback_data: str = "back_main") -> InlineKeyboardMarkup:
@@ -43,19 +34,12 @@ def settings_menu(lang: str, t) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=t("profile"), callback_data="settings_profile")],
         [InlineKeyboardButton(text=t("choose_language"), callback_data="settings_lang")],
-        [InlineKeyboardButton(
-            text=("⬅️ Назад" if lang == "ru" else "⬅️ Back"),
-            callback_data="back_main"
-        )],
+        [InlineKeyboardButton(text=t("back"), callback_data="back_main")],
     ])
 
 
 def buy_subscription_inline(lang: str, t) -> InlineKeyboardMarkup:
-    rows = [
+    return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=t("buy_subscription"), callback_data="to_subscription")],
-        [InlineKeyboardButton(
-            text=("⬅️ Назад" if lang == "ru" else "⬅️ Back"),
-            callback_data="back_main"
-        )],
-    ]
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+        [InlineKeyboardButton(text=t("back"), callback_data="back_main")],
+    ])

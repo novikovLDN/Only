@@ -62,6 +62,10 @@ async def main() -> None:
 
     await init_db()
     bot, dp = _create_bot_and_dp()
+    try:
+        await bot.delete_my_commands()
+    except Exception:
+        pass
     setup_scheduler(bot)
 
     try:

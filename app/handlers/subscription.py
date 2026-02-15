@@ -41,7 +41,7 @@ async def buy_subscription(callback: CallbackQuery, user, t, session) -> None:
     payment = await pay_svc.create_payment(user, tariff, "cryptobot")
     await session.commit()
     lang = user.language or "en"
-    await callback.message.answer(
+    await callback.message.edit_text(
         f"Invoice: {payment.id}, amount {payment.amount} RUB. "
         "Crypto Bot / Telegram Payments integration placeholder.",
         reply_markup=back_inline(lang),

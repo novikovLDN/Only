@@ -3,24 +3,27 @@
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 
-from app.keyboards.inline import settings_menu, main_menu, language_select
+from app.keyboards.inline import settings_menu, language_select
 
 router = Router(name="settings")
 
 
-async def show_settings(message: Message, user, t) -> None:
+def _get_settings_content(user, t) -> tuple[str, "settings_menu"]:
     lang = user.language or "en"
-    await message.answer(t("settings"), reply_markup=settings_menu(lang, t))
+    return t("settings"), settings_menu(lang, t)
+
+
+async def show_settings(message: Message, user, t) -> None:
+    text, kb = _get_settings_content(user, t)
+    await message.answer(text, reply_markup=kb)
 
 
 @router.callback_query(F.data == "settings_profile")
 async def profile_cb(callback: CallbackQuery, user, t, session) -> None:
-    from app.handlers.profile import show_profile
-    try:
-        await callback.message.delete()
-    except Exception:
-        pass
-    await show_profile(callback.message, user, t, session)
+    from app.handlers.profile import _get_profile_content
+
+    text, kb = await _get_profile_content(user, t, session)
+    await callback.message.edit_text(text, reply_markup=kb)
     await callback.answer()
 
 
