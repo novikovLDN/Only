@@ -1,191 +1,149 @@
-"""Edit habits."""
+"""Edit habits — Reply keyboard only."""
+
+from datetime import time as dt_time
 
 from aiogram import Router, F
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.filters import StateFilter
+from aiogram.fsm.context import FSMContext
+from aiogram.types import Message
 
+from app.keyboards.reply import edit_habits_list, edit_habit_detail, main_menu, times_select
 from app.utils.i18n import get_weekdays
-from app.keyboards.inline import main_menu, back_only, edit_habit_detail, weekdays_select, times_select
 
 router = Router(name="edit_habits")
 
+BTN_BACK = ("🔙 Back", "🔙 Назад")
+TIME_EMOJI = ["🕛", "🕐", "🕑", "🕒", "🕓", "🕔", "🕕", "🕖", "🕗", "🕘", "🕙", "🕚"] * 2
 
-async def build_edit_habits_screen(user, t, session) -> tuple[str, InlineKeyboardMarkup]:
+
+async def send_edit_habits_screen(message: Message, user, t, session) -> None:
     from app.repositories.habit_repo import HabitRepository
 
     habit_repo = HabitRepository(session)
     habits = await habit_repo.get_user_habits(user.id)
-    lang = user.language or "en"
     if not habits:
-        return t("preset.no_habits"), main_menu(t)
-    rows = []
-    for h in habits:
-        rows.append([InlineKeyboardButton(text=h.title, callback_data=f"edit_habit_{h.id}")])
-    rows.append([InlineKeyboardButton(text=t("btn.back"), callback_data="back_main")])
-    return t("habit.edit_title"), InlineKeyboardMarkup(inline_keyboard=rows)
+        await message.answer(
+            t("preset.no_habits"),
+            reply_markup=main_menu(t),
+        )
+        return
+    text = t("habit.edit_title")
+    titles = [h.title for h in habits]
+    await message.answer(text, reply_markup=edit_habits_list(t, titles))
 
 
-@router.callback_query(F.data.startswith("edit_habit_"))
-async def edit_habit(callback: CallbackQuery, user, t, session) -> None:
-    habit_id = int(callback.data.split("_")[2])
+@router.message(F.text)
+async def edit_habit_nav(message: Message, user, t, session, state: FSMContext) -> None:
     from app.repositories.habit_repo import HabitRepository
 
-    habit_repo = HabitRepository(session)
-    habit = await habit_repo.get_by_id(habit_id)
-    if not habit or habit.user_id != user.id:
-        await callback.answer()
+    text = message.text or ""
+    if text in BTN_BACK:
+        data = await state.get_data()
+        await state.clear()
+        if "editing_habit_id" in data:
+            await send_edit_habits_screen(message, user, t, session)
+        else:
+            name = user.first_name or "User"
+            text_msg = t("main.greeting", first_name=name) + "\n\n" + t("main.subtitle") + "\n\n" + t("main.action_prompt")
+            await message.answer(text_msg, reply_markup=main_menu(t))
         return
-    lang = user.language or "en"
-    weekdays = get_weekdays(lang)
-    days_set = {d.weekday for d in habit.days}
-    days_str = ", ".join(weekdays[d.weekday] for d in habit.days)
-    times_str = ", ".join(f"{t0.time.hour:02d}:{t0.time.minute:02d}" for t0 in habit.times)
-    text = f"{habit.title}\n{t('habit.days_label')}: {days_str}\n{t('habit.times_label')}: {times_str}"
-    await callback.message.edit_text(text, reply_markup=edit_habit_detail(t, habit_id, lang, days_set))
-    await callback.answer()
+
+    habit_repo = HabitRepository(session)
+    habits = await habit_repo.get_user_habits(user.id)
+    habit_titles = {h.title: h for h in habits}
+
+    if text in habit_titles:
+        habit = habit_titles[text]
+        await state.update_data(editing_habit_id=habit.id)
+        await state.set_state("edit:detail")
+        lang = user.language or "ru"
+        weekdays = get_weekdays(lang)
+        days_str = ", ".join(weekdays[d.weekday] for d in habit.days)
+        times_str = ", ".join(f"{t0.time.hour:02d}:{t0.time.minute:02d}" for t0 in habit.times)
+        msg = f"{habit.title}\n{t('habit.days_label')}: {days_str}\n{t('habit.times_label')}: {times_str}"
+        await message.answer(msg, reply_markup=edit_habit_detail(t))
+        return
+
+    data = await state.get_data()
+    habit_id = data.get("editing_habit_id")
+    if not habit_id:
+        return
+
+    if text == t("habit.change_time"):
+        habit = await habit_repo.get_by_id(habit_id)
+        if habit and habit.user_id == user.id:
+            selected = [t0.time.hour for t0 in habit.times]
+            await state.update_data(edit_times=selected)
+        await state.set_state("edit:time")
+        from app.keyboards.reply import times_select
+        await message.answer(t("preset.select_time"), reply_markup=times_select(t))
+        return
+
+    if text == t("habit.delete"):
+        habit = await habit_repo.get_by_id(habit_id)
+        if habit and habit.user_id == user.id:
+            await habit_repo.delete(habit)
+            await session.commit()
+        await state.clear()
+        await send_edit_habits_screen(message, user, t, session)
+        return
 
 
-@router.callback_query(F.data == "back_edit")
-async def back_edit(callback: CallbackQuery, user, t, session) -> None:
-    text, kb = await build_edit_habits_screen(user, t, session)
-    await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
-def _edit_habit_back_cb(habit_id: int) -> str:
-    return f"et_back_{habit_id}"
-
-
-@router.callback_query(F.data.startswith("chtime_"))
-async def change_time_start(callback: CallbackQuery, user, t, session) -> None:
-    habit_id = int(callback.data.split("_")[1])
+@router.message(StateFilter("edit:time"), F.text)
+async def edit_time_nav(message: Message, user, t, session, state: FSMContext) -> None:
     from app.repositories.habit_repo import HabitRepository
 
-    habit_repo = HabitRepository(session)
-    habit = await habit_repo.get_by_id(habit_id)
-    if not habit or habit.user_id != user.id:
-        await callback.answer()
+    text = message.text or ""
+    data = await state.get_data()
+    habit_id = data.get("editing_habit_id")
+    if not habit_id:
+        await state.clear()
+        await send_edit_habits_screen(message, user, t, session)
         return
-    selected_times = {t0.time.hour for t0 in habit.times}
-    await callback.message.edit_text(
-        t("preset.select_time"),
-        reply_markup=times_select(t, selected_times, f"et_{habit_id}", f"et_done_{habit_id}", _edit_habit_back_cb(habit_id)),
-    )
-    await callback.answer()
 
-
-@router.callback_query(F.data.regexp(r"^et_\d+_\d+$"))
-async def edit_time_toggle(callback: CallbackQuery, user, t, session) -> None:
-    parts = callback.data.split("_")
-    if len(parts) < 3:
-        await callback.answer()
+    if text == t("btn.back"):
+        await state.set_state("edit:detail")
+        habit_repo = HabitRepository(session)
+        habit = await habit_repo.get_by_id(habit_id)
+        if habit and habit.user_id == user.id:
+            lang = user.language or "ru"
+            weekdays = get_weekdays(lang)
+            days_str = ", ".join(weekdays[d.weekday] for d in habit.days)
+            times_str = ", ".join(f"{t0.time.hour:02d}:{t0.time.minute:02d}" for t0 in habit.times)
+            msg = f"{habit.title}\n{t('habit.days_label')}: {days_str}\n{t('habit.times_label')}: {times_str}"
+            await message.answer(msg, reply_markup=edit_habit_detail(t))
         return
-    habit_id = int(parts[1])
-    h = int(parts[2])
-    from app.repositories.habit_repo import HabitRepository
 
-    habit_repo = HabitRepository(session)
-    habit = await habit_repo.get_by_id(habit_id)
-    if not habit or habit.user_id != user.id:
-        await callback.answer()
+    if text == t("btn.done"):
+        times_list = data.get("edit_times", [])
+        if not times_list:
+            await message.answer(t("preset.select_time_at_least"), reply_markup=times_select(t))
+            return
+        habit_repo = HabitRepository(session)
+        habit = await habit_repo.get_by_id(habit_id)
+        if habit and habit.user_id == user.id:
+            times_dt = [dt_time(h, 0) for h in sorted(set(times_list))]
+            await habit_repo.update_times(habit, times_dt)
+            await session.commit()
+        await state.set_state("edit:detail")
+        habit = await habit_repo.get_by_id(habit_id)
+        if habit:
+            lang = user.language or "ru"
+            weekdays = get_weekdays(lang)
+            days_str = ", ".join(weekdays[d.weekday] for d in habit.days)
+            times_str = ", ".join(f"{t0.time.hour:02d}:{t0.time.minute:02d}" for t0 in habit.times)
+            msg = f"{habit.title}\n{t('habit.days_label')}: {days_str}\n{t('habit.times_label')}: {times_str}"
+            await message.answer(msg, reply_markup=edit_habit_detail(t))
         return
-    times_set = {t0.time.hour for t0 in habit.times}
-    if h in times_set:
-        times_set.discard(h)
-    else:
-        times_set.add(h)
-    from datetime import time as dt_time
 
-    habit = await habit_repo.get_by_id(habit_id)
-    await habit_repo.update_times(habit, [dt_time(hh, 0) for hh in sorted(times_set)])
-    await session.commit()
-    await callback.message.edit_reply_markup(
-        reply_markup=times_select(t, times_set, f"et_{habit_id}", f"et_done_{habit_id}", _edit_habit_back_cb(habit_id)),
-    )
-    await callback.answer()
-
-
-@router.callback_query(F.data.startswith("et_back_"))
-async def edit_time_back(callback: CallbackQuery, user, t, session) -> None:
-    habit_id = int(callback.data.split("_")[2])
-    from app.repositories.habit_repo import HabitRepository
-
-    habit_repo = HabitRepository(session)
-    habit = await habit_repo.get_by_id(habit_id)
-    if not habit or habit.user_id != user.id:
-        await callback.answer()
-        return
-    lang = user.language or "en"
-    weekdays = get_weekdays(lang)
-    days_set = {d.weekday for d in habit.days}
-    days_str = ", ".join(weekdays[d.weekday] for d in habit.days)
-    times_str = ", ".join(f"{t0.time.hour:02d}:{t0.time.minute:02d}" for t0 in habit.times)
-    text = f"{habit.title}\n{t('habit.days_label')}: {days_str}\n{t('habit.times_label')}: {times_str}"
-    await callback.message.edit_text(text, reply_markup=edit_habit_detail(t, habit_id, lang, days_set))
-    await callback.answer()
-
-
-@router.callback_query(F.data.startswith("et_done_"))
-async def edit_time_done(callback: CallbackQuery, user, t, session) -> None:
-    habit_id = int(callback.data.split("_")[2])
-    from app.repositories.habit_repo import HabitRepository
-
-    habit_repo = HabitRepository(session)
-    habit = await habit_repo.get_by_id(habit_id)
-    if not habit or habit.user_id != user.id:
-        await callback.answer()
-        return
-    lang = user.language or "en"
-    weekdays = get_weekdays(lang)
-    days_set = {d.weekday for d in habit.days}
-    days_str = ", ".join(weekdays[d.weekday] for d in habit.days)
-    times_str = ", ".join(f"{t0.time.hour:02d}:{t0.time.minute:02d}" for t0 in habit.times)
-    text = f"{habit.title}\n{t('habit.days_label')}: {days_str}\n{t('habit.times_label')}: {times_str}"
-    await callback.message.edit_text(text, reply_markup=edit_habit_detail(t, habit_id, lang, days_set))
-    await callback.answer()
-
-
-@router.callback_query(F.data.startswith("editday_"))
-async def edit_day_toggle(callback: CallbackQuery, user, t, session) -> None:
-    parts = callback.data.split("_")
-    if len(parts) < 3:
-        await callback.answer()
-        return
-    habit_id = int(parts[1])
-    day_idx = int(parts[2])
-    from app.repositories.habit_repo import HabitRepository
-
-    habit_repo = HabitRepository(session)
-    habit = await habit_repo.get_by_id(habit_id)
-    if not habit or habit.user_id != user.id:
-        await callback.answer()
-        return
-    days_set = {d.weekday for d in habit.days}
-    if day_idx in days_set:
-        days_set.discard(day_idx)
-    else:
-        days_set.add(day_idx)
-    await habit_repo.update_days(habit, list(days_set))
-    await session.commit()
-    habit = await habit_repo.get_by_id(habit_id)
-    lang = user.language or "en"
-    weekdays = get_weekdays(lang)
-    days_str = ", ".join(weekdays[d.weekday] for d in habit.days)
-    times_str = ", ".join(f"{t0.time.hour:02d}:{t0.time.minute:02d}" for t0 in habit.times)
-    text = f"{habit.title}\n{t('habit.days_label')}: {days_str}\n{t('habit.times_label')}: {times_str}"
-    await callback.message.edit_text(text, reply_markup=edit_habit_detail(t, habit_id, lang, days_set))
-    await callback.answer()
-
-
-@router.callback_query(F.data.startswith("del_habit_"))
-async def delete_habit(callback: CallbackQuery, user, t, session) -> None:
-    habit_id = int(callback.data.split("_")[2])
-    from app.repositories.habit_repo import HabitRepository
-
-    habit_repo = HabitRepository(session)
-    habit = await habit_repo.get_by_id(habit_id)
-    if habit and habit.user_id == user.id:
-        await habit_repo.delete(habit)
-        await session.commit()
-    text, kb = await build_edit_habits_screen(user, t, session)
-    await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
+    for h in range(24):
+        label = f"{TIME_EMOJI[h]} {h:02d}:00"
+        if text == label:
+            times_set = set(data.get("edit_times", []))
+            if h in times_set:
+                times_set.discard(h)
+            else:
+                times_set.add(h)
+            await state.update_data(edit_times=list(times_set))
+            await message.answer(t("preset.select_time"), reply_markup=times_select(t))
+            return
