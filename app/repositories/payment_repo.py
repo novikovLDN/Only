@@ -1,5 +1,6 @@
 """Payment repository."""
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.models import Payment
@@ -26,3 +27,7 @@ class PaymentRepository:
         self.session.add(payment)
         await self.session.flush()
         return payment
+
+    async def get_by_id(self, payment_id: int) -> Payment | None:
+        result = await self.session.execute(select(Payment).where(Payment.id == payment_id))
+        return result.scalar_one_or_none()

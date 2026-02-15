@@ -4,7 +4,7 @@ import logging
 from typing import Any, Awaitable, Callable
 
 from aiogram import BaseMiddleware
-from aiogram.types import Message, CallbackQuery, TelegramObject
+from aiogram.types import Message, CallbackQuery, PreCheckoutQuery, TelegramObject
 
 from app.core.database import get_session_maker
 from app.repositories.referral_repo import ReferralRepository
@@ -24,10 +24,10 @@ class UserContextMiddleware(BaseMiddleware):
         data: dict[str, Any],
     ) -> Any:
         from_user = None
-        if isinstance(event, Message):
-            from_user = event.from_user
-        elif isinstance(event, CallbackQuery):
-            from_user = event.from_user
+        if isinstance(event, (Message, CallbackQuery, PreCheckoutQuery)):
+            from_user = getattr(event, "from_user", None)
+        else:
+            from_user = None
         if not from_user:
             return await handler(event, data)
 

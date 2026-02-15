@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     bot_token: str = ""
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/habitbot"
     cryptobot_token: str = ""
-    payment_provider_token: str = ""
+    payment_provider_token: str = ""  # YooKassa LIVE token from @BotFather → Payments
 
     @field_validator("database_url", mode="before")
     @classmethod
