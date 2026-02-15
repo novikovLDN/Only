@@ -22,7 +22,7 @@ async def support_cb(callback: CallbackQuery, user, t) -> None:
     from app.keyboards.inline import back_only
 
     await callback.message.edit_text(
-        t("support_contact"),
+        t("settings.support_contact"),
         reply_markup=back_only(t, "back_main"),
     )
     await callback.answer()
@@ -30,5 +30,10 @@ async def support_cb(callback: CallbackQuery, user, t) -> None:
 
 @router.callback_query(F.data == "settings_lang")
 async def language_cb(callback: CallbackQuery, user, t) -> None:
-    await callback.message.edit_text(t("change_language"), reply_markup=language_select_with_back(t, "settings"))
+    from app.utils.i18n import lang_select_prompt
+
+    await callback.message.edit_text(
+        lang_select_prompt(),
+        reply_markup=language_select_with_back(t, "settings"),
+    )
     await callback.answer()

@@ -109,8 +109,8 @@ class UserContextMiddleware(BaseMiddleware):
                     await session.commit()
                     if referral_notify and data.get("_referral_bot"):
                         inviter_tg_id, lang = referral_notify
-                        from app.i18n.loader import get_texts
-                        msg = get_texts(lang).get("referral_success", "🎉 +7 days subscription!")
+                        from app.utils.i18n import TRANSLATIONS
+                        msg = TRANSLATIONS.get(lang, TRANSLATIONS["en"]).get("referral_success", "🎉 +7 days subscription!")
                         try:
                             await data["_referral_bot"].send_message(chat_id=inviter_tg_id, text=msg)
                         except Exception as e:

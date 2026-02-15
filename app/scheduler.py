@@ -42,9 +42,9 @@ async def run_reminders(bot) -> None:
             for tt in times:
                 if tt.hour == now_hour and tt.minute == now_min:
                     try:
-                        from app.i18n.loader import get_texts
+                        from app.utils.i18n import TRANSLATIONS
                         lang = getattr(user, "language", None) or "en"
-                        texts = get_texts(lang)
+                        texts = TRANSLATIONS.get(lang, TRANSLATIONS["en"])
                         msg = texts.get("reminder", "⏰ Time for: {habit_name}").format(habit_name=habit.title)
                         await bot.send_message(
                             chat_id=user.telegram_id,

@@ -1,9 +1,196 @@
-"""i18n utilities."""
+"""i18n — strict key-based, no hardcoded strings."""
 
-from app.i18n.loader import get_texts, get_presets, get_weekdays
+TRANSLATIONS = {
+    "ru": {
+        "lang.select_prompt": "🌍 Пожалуйста, выберите язык",
+        "main.greeting": "Привет, {first_name} 👋",
+        "main.subtitle": "Я рядом, чтобы помочь тебе формировать полезные привычки и мягко напоминать о них в нужное время.",
+        "main.action_prompt": "Выбери действие ниже 👇",
+        "btn.add_habit": "➕ Добавить привычку",
+        "btn.edit_habits": "✏️ Редактировать привычки",
+        "btn.loyalty": "🎁 Программа лояльности",
+        "btn.settings": "⚙️ Настройки",
+        "btn.back": "🔙 Назад",
+        "btn.done": "✅ Готово",
+        "btn.next": "▶️ Далее",
+        "btn.prev": "◀️ Назад",
+        "btn.select_from_list": "📋 Выбрать из списка",
+        "btn.add_custom": "✍️ Добавить свою",
+        "preset.select": "Выберите привычку из списка или добавьте свою",
+        "preset.select_weekdays": "Выберите дни недели",
+        "preset.select_time": "Выберите время",
+        "preset.habit_saved": "Привычка «{title}» сохранена.",
+        "preset.no_habits": "У тебя пока нет привычек.\nДобавь первую 👇",
+        "preset.enter_custom": "Введите название привычки (до 100 символов)",
+        "preset.custom_invalid": "Название должно быть от 1 до 100 символов",
+        "preset.select_day": "Выбери хотя бы один день",
+        "preset.select_time_at_least": "Выбери хотя бы одно время",
+        "premium.block": "✨ Эта функция доступна в Premium.\n\nОткрой полный доступ к привычкам и настройкам без ограничений.",
+        "premium.buy": "💳 Купить подписку",
+        "settings.title": "Настройки",
+        "settings.my_profile": "👤 Мой профиль",
+        "settings.support": "Поддержка",
+        "settings.change_language": "🌐 Изменить язык",
+        "settings.support_contact": "Связаться: @support",
+        "profile.title": "Профиль",
+        "profile.registration": "Регистрация: {date}",
+        "profile.invited": "📊 Приглашено друзей: {count}",
+        "profile.subscription_until": "🗓 Подписка до: {date}",
+        "profile.no_subscription": "Нет подписки",
+        "profile.buy": "💳 Купить подписку",
+        "loyalty.referral_link": "Ваша реферальная ссылка:",
+        "loyalty.invited_count": "📊 Приглашено друзей: {count}",
+        "loyalty.share": "🔗 Поделиться ссылкой",
+        "loyalty.details": "ℹ️ Подробнее",
+        "loyalty.info": "Пригласите друга — получите +7 дней подписки за каждого.",
+        "loyalty.your_invites": "🎁 Ваши приглашения",
+        "subscription.choose_tariff": "Выберите тариф",
+        "subscription.choose_payment": "Способ оплаты",
+        "subscription.cryptobot": "💎 CryptoBot",
+        "subscription.bank_card": "💳 Банковская карта",
+        "subscription.tariff_1m": "📅 1 месяц – {price}₽",
+        "subscription.tariff_3m": "📦 3 месяца – {price}₽",
+        "subscription.tariff_6m": "🚀 6 месяцев – {price}₽",
+        "subscription.tariff_12m": "🏆 12 месяцев – {price}₽",
+        "habit.edit_title": "Редактировать привычки",
+        "habit.days_label": "Дни",
+        "habit.times_label": "Время",
+        "habit.change_time": "Изменить время",
+        "habit.delete": "Удалить привычку",
+        "habit.deleted": "Привычка удалена.",
+        "reminder": "⏰ Время для: {habit_name}",
+        "referral_success": "🎉 Поздравляем!\n\nВы пригласили друга и получили подарок — +7 дней подписки.\n\nСпасибо, что вы с нами ❤️",
+    },
+    "en": {
+        "lang.select_prompt": "🌍 Please choose your language",
+        "main.greeting": "Hi, {first_name} 👋",
+        "main.subtitle": "I'm here to help you build better habits and gently remind you at the right time.",
+        "main.action_prompt": "Choose an action below 👇",
+        "btn.add_habit": "➕ Add habit",
+        "btn.edit_habits": "✏️ Edit habits",
+        "btn.loyalty": "🎁 Loyalty program",
+        "btn.settings": "⚙️ Settings",
+        "btn.back": "🔙 Back",
+        "btn.done": "✅ Done",
+        "btn.next": "▶️ Next",
+        "btn.prev": "◀️ Prev",
+        "btn.select_from_list": "📋 Select from list",
+        "btn.add_custom": "✍️ Add custom",
+        "preset.select": "Select a habit from the list or add your own",
+        "preset.select_weekdays": "Select weekdays",
+        "preset.select_time": "Select time",
+        "preset.habit_saved": "Habit «{title}» saved.",
+        "preset.no_habits": "You have no habits yet.\nAdd your first one 👇",
+        "preset.enter_custom": "Enter habit name (up to 100 characters)",
+        "preset.custom_invalid": "Name must be 1–100 characters",
+        "preset.select_day": "Select at least one day",
+        "preset.select_time_at_least": "Select at least one time",
+        "premium.block": "✨ This feature is available in Premium.\n\nUnlock full access to habits and advanced settings.",
+        "premium.buy": "💳 Buy subscription",
+        "settings.title": "Settings",
+        "settings.my_profile": "👤 My profile",
+        "settings.support": "Support",
+        "settings.change_language": "🌐 Change language",
+        "settings.support_contact": "Contact: @support",
+        "profile.title": "Profile",
+        "profile.registration": "Registration: {date}",
+        "profile.invited": "📊 Friends invited: {count}",
+        "profile.subscription_until": "🗓 Subscription until: {date}",
+        "profile.no_subscription": "No subscription",
+        "profile.buy": "💳 Buy subscription",
+        "loyalty.referral_link": "Your referral link:",
+        "loyalty.invited_count": "📊 Friends invited: {count}",
+        "loyalty.share": "🔗 Share link",
+        "loyalty.details": "ℹ️ Details",
+        "loyalty.info": "Invite a friend — get +7 days subscription for each.",
+        "loyalty.your_invites": "🎁 Your invitations",
+        "subscription.choose_tariff": "Choose tariff",
+        "subscription.choose_payment": "Payment method",
+        "subscription.cryptobot": "💎 CryptoBot",
+        "subscription.bank_card": "💳 Bank Card",
+        "subscription.tariff_1m": "📅 1 month – {price}₽",
+        "subscription.tariff_3m": "📦 3 months – {price}₽",
+        "subscription.tariff_6m": "🚀 6 months – {price}₽",
+        "subscription.tariff_12m": "🏆 12 months – {price}₽",
+        "habit.edit_title": "Edit habits",
+        "habit.days_label": "Days",
+        "habit.times_label": "Time",
+        "habit.change_time": "Change time",
+        "habit.delete": "Delete habit",
+        "habit.deleted": "Habit deleted.",
+        "reminder": "⏰ Time for: {habit_name}",
+        "referral_success": "🎉 Congratulations!\n\nYou invited a friend and received a gift — +7 days of subscription.\n\nThank you for being with us ❤️",
+    },
+}
+
+HABIT_PRESETS_RU = [
+    "Пить больше воды",
+    "Спорт",
+    "Читать книги",
+    "Медитировать",
+    "Спать до 23:00",
+    "Дневник",
+    "10 000 шагов",
+    "Растяжка",
+    "Учить английский",
+    "Без сахара",
+    "Без соцсетей",
+    "Ранний подъём",
+    "Витамины",
+    "Холодный душ",
+    "Благодарность",
+    "Учёба",
+    "Здоровое питание",
+    "Позвонить родителям",
+    "Копить деньги",
+    "Планировать день",
+]
+
+HABIT_PRESETS_EN = [
+    "Drink more water",
+    "Exercise",
+    "Read books",
+    "Meditate",
+    "Sleep before 23:00",
+    "Journal",
+    "Walk 10k steps",
+    "Stretch",
+    "Learn English",
+    "No sugar",
+    "No social media",
+    "Wake up early",
+    "Vitamins",
+    "Cold shower",
+    "Practice gratitude",
+    "Study",
+    "Healthy food",
+    "Call parents",
+    "Save money",
+    "Plan day",
+]
+
+WEEKDAYS_RU = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+WEEKDAYS_EN = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+TIME_EMOJI = [
+    "🕛", "🕐", "🕑", "🕒", "🕓", "🕔", "🕕", "🕖", "🕗", "🕘", "🕙", "🕚",
+    "🕛", "🕐", "🕑", "🕒", "🕓", "🕔", "🕕", "🕖", "🕗", "🕘", "🕙", "🕚",
+]
 
 
-def t(key: str, lang: str | None, **kw) -> str:
-    texts = get_texts(lang or "en")
+def t(lang: str, key: str, **kwargs) -> str:
+    texts = TRANSLATIONS.get(lang or "en", TRANSLATIONS["en"])
     s = texts.get(key, key)
-    return s.format(**kw) if kw else s
+    return s.format(**kwargs) if kwargs else s
+
+
+def get_presets(lang: str) -> list[str]:
+    return HABIT_PRESETS_RU if lang == "ru" else HABIT_PRESETS_EN
+
+
+def get_weekdays(lang: str) -> list[str]:
+    return WEEKDAYS_RU if lang == "ru" else WEEKDAYS_EN
+
+
+def lang_select_prompt() -> str:
+    return "🌍 Please choose your language\n🌍 Пожалуйста, выберите язык"

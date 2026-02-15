@@ -1,26 +1,16 @@
-"""i18n loader."""
+"""i18n loader — delegates to app.utils.i18n."""
 
-from app.i18n.en import HABIT_PRESETS as EN_PRESETS
-from app.i18n.en import TEXTS as EN_TEXTS
-from app.i18n.en import WEEKDAYS as EN_WEEKDAYS
-from app.i18n.ru import HABIT_PRESETS as RU_PRESETS
-from app.i18n.ru import TEXTS as RU_TEXTS
-from app.i18n.ru import WEEKDAYS as RU_WEEKDAYS
+from app.utils.i18n import (
+    TRANSLATIONS,
+    get_presets,
+    get_weekdays,
+    t as t_fn,
+)
 
 
 def get_texts(lang: str | None) -> dict:
-    return RU_TEXTS if lang == "ru" else EN_TEXTS
+    return TRANSLATIONS.get(lang or "en", TRANSLATIONS["en"])
 
 
 def t(key: str, lang: str | None, **kw) -> str:
-    texts = get_texts(lang or "en")
-    s = texts.get(key, key)
-    return s.format(**kw) if kw else s
-
-
-def get_presets(lang: str) -> list[str]:
-    return RU_PRESETS if lang == "ru" else EN_PRESETS
-
-
-def get_weekdays(lang: str) -> list[str]:
-    return RU_WEEKDAYS if lang == "ru" else EN_WEEKDAYS
+    return t_fn(lang or "en", key, **kw)

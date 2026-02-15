@@ -3,7 +3,7 @@
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
-from app.i18n.loader import get_weekdays
+from app.utils.i18n import get_weekdays
 from app.keyboards.inline import main_menu, back_only, edit_habit_detail, weekdays_select, times_select
 
 router = Router(name="edit_habits")
@@ -16,12 +16,12 @@ async def build_edit_habits_screen(user, t, session) -> tuple[str, InlineKeyboar
     habits = await habit_repo.get_user_habits(user.id)
     lang = user.language or "en"
     if not habits:
-        return t("no_habits"), main_menu(t)
+        return t("preset.no_habits"), main_menu(t)
     rows = []
     for h in habits:
         rows.append([InlineKeyboardButton(text=h.title, callback_data=f"edit_habit_{h.id}")])
-    rows.append([InlineKeyboardButton(text=t("back"), callback_data="back_main")])
-    return t("edit_habits"), InlineKeyboardMarkup(inline_keyboard=rows)
+    rows.append([InlineKeyboardButton(text=t("btn.back"), callback_data="back_main")])
+    return t("habit.edit_title"), InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 @router.callback_query(F.data.startswith("edit_habit_"))
@@ -39,7 +39,7 @@ async def edit_habit(callback: CallbackQuery, user, t, session) -> None:
     days_set = {d.weekday for d in habit.days}
     days_str = ", ".join(weekdays[d.weekday] for d in habit.days)
     times_str = ", ".join(f"{t0.time.hour:02d}:{t0.time.minute:02d}" for t0 in habit.times)
-    text = f"{habit.title}\nДни: {days_str}\nВремя: {times_str}"
+    text = f"{habit.title}\n{t('habit.days_label')}: {days_str}\n{t('habit.times_label')}: {times_str}"
     await callback.message.edit_text(text, reply_markup=edit_habit_detail(t, habit_id, lang, days_set))
     await callback.answer()
 
@@ -67,7 +67,7 @@ async def change_time_start(callback: CallbackQuery, user, t, session) -> None:
         return
     selected_times = {t0.time.hour for t0 in habit.times}
     await callback.message.edit_text(
-        t("select_time"),
+        t("preset.select_time"),
         reply_markup=times_select(t, selected_times, f"et_{habit_id}", f"et_done_{habit_id}", _edit_habit_back_cb(habit_id)),
     )
     await callback.answer()
@@ -119,7 +119,7 @@ async def edit_time_back(callback: CallbackQuery, user, t, session) -> None:
     days_set = {d.weekday for d in habit.days}
     days_str = ", ".join(weekdays[d.weekday] for d in habit.days)
     times_str = ", ".join(f"{t0.time.hour:02d}:{t0.time.minute:02d}" for t0 in habit.times)
-    text = f"{habit.title}\nДни: {days_str}\nВремя: {times_str}"
+    text = f"{habit.title}\n{t('habit.days_label')}: {days_str}\n{t('habit.times_label')}: {times_str}"
     await callback.message.edit_text(text, reply_markup=edit_habit_detail(t, habit_id, lang, days_set))
     await callback.answer()
 
@@ -139,7 +139,7 @@ async def edit_time_done(callback: CallbackQuery, user, t, session) -> None:
     days_set = {d.weekday for d in habit.days}
     days_str = ", ".join(weekdays[d.weekday] for d in habit.days)
     times_str = ", ".join(f"{t0.time.hour:02d}:{t0.time.minute:02d}" for t0 in habit.times)
-    text = f"{habit.title}\nДни: {days_str}\nВремя: {times_str}"
+    text = f"{habit.title}\n{t('habit.days_label')}: {days_str}\n{t('habit.times_label')}: {times_str}"
     await callback.message.edit_text(text, reply_markup=edit_habit_detail(t, habit_id, lang, days_set))
     await callback.answer()
 
@@ -171,7 +171,7 @@ async def edit_day_toggle(callback: CallbackQuery, user, t, session) -> None:
     weekdays = get_weekdays(lang)
     days_str = ", ".join(weekdays[d.weekday] for d in habit.days)
     times_str = ", ".join(f"{t0.time.hour:02d}:{t0.time.minute:02d}" for t0 in habit.times)
-    text = f"{habit.title}\nДни: {days_str}\nВремя: {times_str}"
+    text = f"{habit.title}\n{t('habit.days_label')}: {days_str}\n{t('habit.times_label')}: {times_str}"
     await callback.message.edit_text(text, reply_markup=edit_habit_detail(t, habit_id, lang, days_set))
     await callback.answer()
 

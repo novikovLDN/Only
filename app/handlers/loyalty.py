@@ -22,7 +22,7 @@ async def build_loyalty_content(user, t, session, bot) -> tuple[str, "InlineKeyb
         except Exception:
             pass
     link = f"https://t.me/{username}?start=ref_{user.telegram_id}"
-    text = f"{t('referral_link')}\n{link}\n\n{t('invited_count', count=count)}\n\n{t('referral_info')}"
+    text = f"{t('loyalty.referral_link')}\n{link}\n\n{t('loyalty.invited_count', count=count)}\n\n{t('loyalty.info')}"
     return text, loyalty_menu(t)
 
 
@@ -43,5 +43,5 @@ async def share_link_cb(callback: CallbackQuery, user, t, session) -> None:
 
 @router.callback_query(F.data == "loyalty_details")
 async def loyalty_details_cb(callback: CallbackQuery, user, t) -> None:
-    await callback.message.edit_text(t("referral_info"), reply_markup=back_only(t, "loyalty"))
+    await callback.message.edit_text(t("loyalty.info"), reply_markup=back_only(t, "loyalty"))
     await callback.answer()

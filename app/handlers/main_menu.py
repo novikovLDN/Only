@@ -9,7 +9,8 @@ router = Router(name="main_menu")
 
 
 def _welcome(user, t) -> str:
-    return t("welcome", first_name=user.first_name or "User")
+    name = user.first_name or "User"
+    return t("main.greeting", first_name=name) + "\n\n" + t("main.subtitle") + "\n\n" + t("main.action_prompt")
 
 
 @router.callback_query(F.data == "back_main")
@@ -57,5 +58,5 @@ async def loyalty_cb(callback: CallbackQuery, user, t, session) -> None:
 async def settings_cb(callback: CallbackQuery, user, t) -> None:
     from app.keyboards.inline import settings_menu
 
-    await callback.message.edit_text(t("settings"), reply_markup=settings_menu(t))
+    await callback.message.edit_text(t("settings.title"), reply_markup=settings_menu(t))
     await callback.answer()

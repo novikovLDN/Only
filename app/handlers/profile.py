@@ -18,14 +18,14 @@ async def build_profile_content(user, t, session) -> tuple[str, "InlineKeyboardM
     sub_until = (
         user.subscription_until.strftime("%d.%m.%Y")
         if user.subscription_until
-        else t("no_subscription")
+        else t("profile.no_subscription")
     )
     has_sub = user.subscription_until and user.subscription_until > datetime.now(timezone.utc)
     text = (
-        f"{t('profile')}\n"
-        f"{t('registration_date', date=reg_date)}\n"
-        f"{t('invited_count', count=count)}\n"
-        f"{t('subscription_until', date=sub_until)}"
+        f"{t('profile.title')}\n"
+        f"{t('profile.registration', date=reg_date)}\n"
+        f"{t('profile.invited', count=count)}\n"
+        f"{t('profile.subscription_until', date=sub_until)}"
     )
     return text, profile_menu(t, has_sub)
 

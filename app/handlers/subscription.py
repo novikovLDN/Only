@@ -12,7 +12,7 @@ router = Router(name="subscription")
 @router.callback_query(F.data == "to_subscription")
 async def to_subscription_cb(callback: CallbackQuery, user, t) -> None:
     await callback.message.edit_text(
-        t("choose_tariff"),
+        t("subscription.choose_tariff"),
         reply_markup=tariff_select(t),
     )
     await callback.answer()
@@ -27,7 +27,7 @@ async def tariff_selected(callback: CallbackQuery, user, t) -> None:
         await callback.answer()
         return
     await callback.message.edit_text(
-        t("choose_payment_method"),
+        t("subscription.choose_payment"),
         reply_markup=payment_method_select(t, tariff_val),
     )
     await callback.answer()

@@ -1,13 +1,13 @@
-"""Add habit flow — presets (pagination), custom, weekdays, times."""
+"""Add habit flow."""
 
 import logging
 from datetime import time as dt_time
+
 from aiogram import Router, F
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
-from app.core.constants import HABIT_PRESETS_LIMIT_FREE
-from app.i18n.loader import get_presets, get_weekdays
+from app.i18n.loader import get_presets
 from app.keyboards.inline import (
     presets_page,
     weekdays_select,
@@ -28,7 +28,7 @@ async def show_presets_screen(callback: CallbackQuery, user, t, is_premium: bool
         await state.update_data(preset_page=page, preset_selected=list(sel))
         await state.set_state(AddHabitStates.presets)
     await callback.message.edit_text(
-        t("select_preset_list"),
+        t("preset.select"),
         reply_markup=presets_page(t, lang, page, sel, is_premium),
     )
 
@@ -36,7 +36,7 @@ async def show_presets_screen(callback: CallbackQuery, user, t, is_premium: bool
 @router.callback_query(F.data == "premium")
 async def premium_locked(callback: CallbackQuery, user, t) -> None:
     await callback.message.edit_text(
-        t("premium_required"),
+        t("premium.block"),
         reply_markup=buy_subscription_only(t),
     )
     await callback.answer()
@@ -45,6 +45,7 @@ async def premium_locked(callback: CallbackQuery, user, t) -> None:
 @router.callback_query(F.data.startswith("preset_toggle_"))
 async def preset_toggle(callback: CallbackQuery, user, t, is_premium: bool, state: FSMContext) -> None:
     idx = int(callback.data.split("_")[2])
+    from app.core.constants import HABIT_PRESETS_LIMIT_FREE
     if not is_premium and idx >= HABIT_PRESETS_LIMIT_FREE:
         await callback.answer()
         return
@@ -77,7 +78,7 @@ async def preset_done(callback: CallbackQuery, user, t, is_premium: bool, state:
     data = await state.get_data()
     selected = set(data.get("preset_selected", []))
     if not selected:
-        await callback.answer(t("select_at_least_one_day"), show_alert=True)
+        await callback.answer(t("preset.select_day"), show_alert=True)
         return
     lang = user.language or "en"
     presets = get_presets(lang)
@@ -86,7 +87,7 @@ async def preset_done(callback: CallbackQuery, user, t, is_premium: bool, state:
     await state.set_state(AddHabitStates.weekdays)
     lang = user.language or "en"
     await callback.message.edit_text(
-        t("select_weekdays"),
+        t("preset.select_weekdays"),
         reply_markup=weekdays_select(t, set(), lang, "day", "back_main"),
     )
     await callback.answer()
@@ -94,11 +95,12 @@ async def preset_done(callback: CallbackQuery, user, t, is_premium: bool, state:
 
 @router.callback_query(F.data == "custom_habit")
 async def custom_habit_start(callback: CallbackQuery, user, t, state: FSMContext) -> None:
+    from app.keyboards.inline import back_only
+
     await state.update_data(habit_titles=[], is_custom=True)
     await state.set_state(AddHabitStates.custom_text)
-    from app.keyboards.inline import back_only
     await callback.message.edit_text(
-        t("enter_custom_habit"),
+        t("preset.enter_custom"),
         reply_markup=back_only(t, "back_main"),
     )
     await callback.answer()
@@ -126,13 +128,13 @@ async def days_done(callback: CallbackQuery, user, t, state: FSMContext) -> None
     data = await state.get_data()
     days = data.get("selected_days", [])
     if not days:
-        await callback.answer(t("select_at_least_one_day"), show_alert=True)
+        await callback.answer(t("preset.select_day"), show_alert=True)
         return
     days_sorted = sorted(set(days))
     await state.update_data(selected_days=days_sorted)
     await state.set_state(AddHabitStates.times)
     await callback.message.edit_text(
-        t("select_time"),
+        t("preset.select_time"),
         reply_markup=times_select(t, set(), "time", "times_done", "back_to_days"),
     )
     await callback.answer()
@@ -161,7 +163,7 @@ async def back_to_days(callback: CallbackQuery, user, t, state: FSMContext) -> N
     await state.set_state(AddHabitStates.weekdays)
     lang = user.language or "en"
     await callback.message.edit_text(
-        t("select_weekdays"),
+        t("preset.select_weekdays"),
         reply_markup=weekdays_select(t, days, lang, "day", "back_main"),
     )
     await callback.answer()
@@ -172,12 +174,16 @@ async def times_done(callback: CallbackQuery, user, t, session, state: FSMContex
     data = await state.get_data()
     times_list = data.get("selected_times", [])
     if not times_list:
-        await callback.answer(t("select_at_least_one_time"), show_alert=True)
+        await callback.answer(t("preset.select_time_at_least"), show_alert=True)
         return
     titles = data.get("habit_titles", [])
     if not titles:
         await state.clear()
-        await callback.message.edit_text(t("welcome", first_name=user.first_name or "User"), reply_markup=main_menu(t))
+        name = user.first_name or "User"
+        await callback.message.edit_text(
+            t("main.greeting", first_name=name) + "\n\n" + t("main.subtitle") + "\n\n" + t("main.action_prompt"),
+            reply_markup=main_menu(t),
+        )
         await callback.answer()
         return
     from app.repositories.habit_repo import HabitRepository
@@ -193,8 +199,9 @@ async def times_done(callback: CallbackQuery, user, t, session, state: FSMContex
         await habit_svc.create_habit(user, title, data.get("is_custom", False), days, times_dt)
     await session.commit()
     await state.clear()
+    name = user.first_name or "User"
     await callback.message.edit_text(
-        t("welcome", first_name=user.first_name or "User"),
+        t("main.greeting", first_name=name) + "\n\n" + t("main.subtitle") + "\n\n" + t("main.action_prompt"),
         reply_markup=main_menu(t),
     )
     await callback.answer()
@@ -204,12 +211,12 @@ async def times_done(callback: CallbackQuery, user, t, session, state: FSMContex
 async def custom_habit_text(message: Message, user, t, state: FSMContext) -> None:
     text = (message.text or "").strip()
     if len(text) < 1 or len(text) > 100:
-        await message.answer(t("custom_habit_invalid"))
+        await message.answer(t("preset.custom_invalid"))
         return
     await state.update_data(habit_titles=[text], is_custom=True)
     await state.set_state(AddHabitStates.weekdays)
     lang = user.language or "en"
     await message.answer(
-        t("select_weekdays"),
+        t("preset.select_weekdays"),
         reply_markup=weekdays_select(t, set(), lang, "day", "back_main"),
     )

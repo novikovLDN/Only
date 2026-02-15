@@ -3,9 +3,9 @@
 from typing import Any, Awaitable, Callable
 
 from aiogram import BaseMiddleware
-from aiogram.types import Message, CallbackQuery, TelegramObject
+from aiogram.types import TelegramObject
 
-from app.i18n.loader import get_texts, get_presets, get_weekdays
+from app.utils.i18n import get_presets, get_weekdays, t as i18n_t
 
 
 class I18nMiddleware(BaseMiddleware):
@@ -20,9 +20,10 @@ class I18nMiddleware(BaseMiddleware):
         if user and hasattr(user, "language") and getattr(user, "language", None) in ("ru", "en"):
             lang = user.language
         data["lang"] = lang
+
         def _t(key: str, **kw) -> str:
-            s = get_texts(lang).get(key, key)
-            return s.format(**kw) if kw else s
+            return i18n_t(lang, key, **kw)
+
         data["t"] = _t
         data["presets"] = get_presets(lang)
         data["weekdays_labels"] = get_weekdays(lang)
