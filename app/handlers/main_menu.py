@@ -7,6 +7,7 @@ from app.db import get_session_maker
 from app.keyboards import main_menu
 from app.services import user_service
 from app.texts import t
+from app.utils.safe_edit import safe_edit_or_send
 
 router = Router(name="main_menu")
 
@@ -21,8 +22,10 @@ async def cb_main_menu(cb: CallbackQuery) -> None:
     async with sm() as session:
         user = await user_service.get_by_telegram_id(session, tid)
         lang = user.language_code if user else "en"
+        is_premium = user_service.is_premium(user) if user else False
 
-    await cb.message.edit_text(
+    await safe_edit_or_send(
+        cb,
         t(lang, "main_greeting").format(name=fname or "there"),
-        reply_markup=main_menu(lang),
+        reply_markup=main_menu(lang, is_premium),
     )

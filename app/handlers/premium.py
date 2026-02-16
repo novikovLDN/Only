@@ -7,6 +7,7 @@ from app.db import get_session_maker
 from app.config import settings
 from app.keyboards import main_menu, premium_menu
 from app.services import user_service
+from app.utils.safe_edit import safe_edit_or_send
 from app.texts import t
 
 router = Router(name="premium")
@@ -26,7 +27,7 @@ async def cb_premium(cb: CallbackQuery) -> None:
         is_premium = user_service.is_premium(user)
 
     btn = t(lang, "btn_premium_extend") if is_premium else t(lang, "btn_premium")
-    await cb.message.edit_text(btn, reply_markup=premium_menu(lang))
+    await safe_edit_or_send(cb, btn, reply_markup=premium_menu(lang))
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith("pay_"))

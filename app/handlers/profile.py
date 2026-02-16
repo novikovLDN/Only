@@ -8,6 +8,7 @@ from aiogram.types import CallbackQuery
 from app.db import get_session_maker
 from app.keyboards import back_only
 from app.keyboards.profile import profile_keyboard
+from app.utils.safe_edit import safe_edit_or_send
 from app.services import habit_log_service, referral_service, user_service
 from app.texts import t
 
@@ -79,4 +80,4 @@ async def cb_profile_missed(cb: CallbackQuery) -> None:
             return
         lang = user.language_code
 
-    await cb.message.edit_text(t(lang, "profile_skipped"), reply_markup=back_only(lang, "profile"))
+    await safe_edit_or_send(cb, t(lang, "profile_skipped"), reply_markup=back_only(lang, "profile"))

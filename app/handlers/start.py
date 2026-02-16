@@ -11,6 +11,7 @@ from app.db import get_session_maker
 from app.keyboards import lang_select, main_menu, tz_select
 from app.services import referral_service, user_service
 from app.texts import t
+from app.utils.safe_edit import safe_edit_or_send
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +114,8 @@ async def cb_back_main(cb: CallbackQuery) -> None:
         lang = user.language_code if user else "en"
         is_premium = user_service.is_premium(user) if user else False
 
-    await cb.message.edit_text(
+    await safe_edit_or_send(
+        cb,
         t(lang, "main_greeting").format(name=fname or "there"),
         reply_markup=main_menu(lang, is_premium),
     )
