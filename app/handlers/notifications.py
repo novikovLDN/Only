@@ -1,5 +1,6 @@
 """Notification callbacks — Done / Skip from reminders."""
 
+import asyncio
 from datetime import date
 
 from aiogram import Router, F
@@ -7,7 +8,7 @@ from aiogram.types import CallbackQuery
 
 from app.db import get_session_maker
 from app.keyboards import main_menu
-from app.keyboards.reminder import reminder_buttons, skip_reasons
+from app.keyboards.reminder import skip_reasons
 from app.services import habit_log_service, reminders as rem_svc
 from app.services import user_service
 from app.texts import t
@@ -31,14 +32,18 @@ async def cb_habit_done(cb: CallbackQuery) -> None:
         lang = user.language_code if user.language_code in ("ru", "en") else "ru"
         await rem_svc.reset_usage_if_needed(session, user.id, lang)
         used = await rem_svc.get_used_indices(session, user.id)
-        phrase, idx = rem_svc.get_phrase(lang, used)
+        _, idx = rem_svc.get_phrase(lang, used)
         await habit_log_service.log_done(session, habit_id, user.id, date.today())
         await rem_svc.record_phrase_usage(session, user.id, habit_id, idx)
         await session.commit()
+        is_premium = user_service.is_premium(user)
+        fname = cb.from_user.first_name if cb.from_user else ""
 
-    await cb.message.edit_text(
-        f"🎉\n\n{phrase}",
-        reply_markup=main_menu(lang, user_service.is_premium(user)),
+    await cb.message.answer("🎉")
+    await asyncio.sleep(3)
+    await cb.message.answer(
+        t(lang, "main_greeting").format(name=fname or "there"),
+        reply_markup=main_menu(lang, is_premium),
     )
 
 
