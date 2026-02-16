@@ -1,11 +1,10 @@
 """APScheduler — habit reminders every 60s, habit_time + timezone."""
 
 import logging
-from datetime import date, datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import select
 
 from app.database import get_session_maker
@@ -30,6 +29,7 @@ def get_scheduler() -> AsyncIOScheduler:
 async def run_reminders(bot) -> None:
     """Every 60s: habit_time JOIN habit JOIN user, match weekday+time in user TZ."""
     try:
+        now_utc = datetime.now(timezone.utc)
         sm = get_session_maker()
         async with sm() as s:
             result = await s.execute(
@@ -49,10 +49,9 @@ async def run_reminders(bot) -> None:
             except Exception:
                 tz = ZoneInfo("UTC")
 
-            now_dt = datetime.now(tz)
-            today = now_dt.date()
-            weekday = (now_dt.weekday() + 1) % 7
-            if weekday != ht.weekday:
+            now_user = now_utc.astimezone(tz)
+            today = now_user.date()
+            if now_user.weekday() != ht.weekday:
                 continue
 
             t_val = ht.time
@@ -65,7 +64,7 @@ async def run_reminders(bot) -> None:
                 except (ValueError, IndexError):
                     continue
 
-            if now_dt.hour != h or now_dt.minute != m:
+            if now_user.hour != h or now_user.minute != m:
                 continue
 
             async with sm() as session:
@@ -97,7 +96,14 @@ async def run_reminders(bot) -> None:
 
 def setup_scheduler(bot) -> None:
     sched = get_scheduler()
-    sched.add_job(run_reminders, IntervalTrigger(seconds=60), args=(bot,), id="habit_reminders")
+    sched.add_job(
+        run_reminders,
+        trigger="interval",
+        minutes=1,
+        args=(bot,),
+        id="habit_reminders",
+        replace_existing=True,
+    )
     sched.start()
     logger.info("Scheduler started")
 
