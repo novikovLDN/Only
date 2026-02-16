@@ -8,7 +8,7 @@ from aiogram.types import CallbackQuery
 
 from app.db import get_session_maker
 from app.keyboards import main_menu
-from app.keyboards.reminder import skip_reasons
+from app.keyboards.reminder import reminder_buttons, skip_reasons
 from app.services import habit_log_service, reminders as rem_svc
 from app.services import user_service
 from app.texts import t
@@ -27,18 +27,23 @@ async def cb_habit_done(cb: CallbackQuery) -> None:
         user = await user_service.get_by_telegram_id(session, tid)
         if not user:
             return
-        if await habit_log_service.has_log_today(session, user.id, habit_id, date.today()):
+        today = date.today()
+        if await habit_log_service.has_log_today(session, user.id, habit_id, today):
             return
         lang = user.language_code if user.language_code in ("ru", "en") else "ru"
         await rem_svc.reset_usage_if_needed(session, user.id, lang)
         used = await rem_svc.get_used_indices(session, user.id)
         _, idx = rem_svc.get_phrase(lang, used)
-        await habit_log_service.log_done(session, habit_id, user.id, date.today())
+        await habit_log_service.log_done(session, habit_id, user.id, today)
         await rem_svc.record_phrase_usage(session, user.id, habit_id, idx)
         await session.commit()
         is_premium = user_service.is_premium(user)
         fname = cb.from_user.first_name if cb.from_user else ""
 
+    try:
+        await cb.message.delete()
+    except Exception:
+        pass
     await cb.message.answer("🎉")
     await asyncio.sleep(3)
     await cb.message.answer(
@@ -78,11 +83,25 @@ async def cb_skip_reason(cb: CallbackQuery) -> None:
         user = await user_service.get_by_telegram_id(session, tid)
         if not user:
             return
-        await habit_log_service.log_skipped(session, habit_id, user.id, date.today())
+        today = date.today()
+        if await habit_log_service.has_log_today(session, user.id, habit_id, today):
+            return
+        await habit_log_service.log_skipped(session, habit_id, user.id, today)
         await session.commit()
         lang = user.language_code
+        is_premium = user_service.is_premium(user)
+        fname = cb.from_user.first_name if cb.from_user else ""
 
-    await cb.message.edit_text(t(lang, "reminder_skip_msg"))
+    try:
+        await cb.message.delete()
+    except Exception:
+        pass
+    await cb.message.answer(t(lang, "reminder_skip_msg"))
+    await asyncio.sleep(3)
+    await cb.message.answer(
+        t(lang, "main_greeting").format(name=fname or "there"),
+        reply_markup=main_menu(lang, is_premium),
+    )
 
 
 @router.callback_query(F.data.startswith("back_to_reminder:"))
