@@ -29,9 +29,18 @@ def presets_grid(presets: list[str], page: int, lang: str, is_premium: bool) -> 
     start = page * PAGE_SIZE
     chunk = presets[start : start + PAGE_SIZE]
     rows = []
+    row = []
     for i, title in enumerate(chunk):
         idx = start + i
-        rows.append([InlineKeyboardButton(text=title, callback_data=f"preset_{idx}")])
+        if is_premium or idx < 3:
+            row.append(InlineKeyboardButton(text=title, callback_data=f"preset_{idx}"))
+        else:
+            row.append(InlineKeyboardButton(text=f"{title} 🔒", callback_data="premium_required"))
+        if len(row) == 3:
+            rows.append(row)
+            row = []
+    if row:
+        rows.append(row)
     nav = []
     if page > 0:
         nav.append(InlineKeyboardButton(text=t(lang, "habit_preset_prev"), callback_data="preset_prev"))
@@ -41,6 +50,10 @@ def presets_grid(presets: list[str], page: int, lang: str, is_premium: bool) -> 
         rows.append(nav)
     if is_premium:
         rows.append([InlineKeyboardButton(text=t(lang, "habit_custom"), callback_data="preset_custom")])
+    else:
+        rows.append([
+            InlineKeyboardButton(text=t(lang, "habit_custom_locked"), callback_data="premium_required")
+        ])
     rows.append([InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="back_main")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 

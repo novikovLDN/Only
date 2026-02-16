@@ -5,7 +5,7 @@ from datetime import time
 from aiogram import Router, F
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from app.db import get_session_maker
 from app.keyboards import back_only, main_menu
@@ -22,6 +22,25 @@ class CreateHabitStates(StatesGroup):
     days = State()
     time_slot = State()
     confirm = State()
+
+
+@router.callback_query(F.data == "premium_required")
+async def cb_premium_required(cb: CallbackQuery) -> None:
+    await cb.answer()
+    tid = cb.from_user.id if cb.from_user else 0
+    sm = get_session_maker()
+    async with sm() as session:
+        user = await user_service.get_by_telegram_id(session, tid)
+        lang = user.language_code if user else "ru"
+    await cb.message.edit_text(
+        t(lang, "premium_required_upsell"),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text=t(lang, "btn_premium"), callback_data="premium")],
+                [InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="add_habit")],
+            ]
+        ),
+    )
 
 
 @router.callback_query(lambda c: c.data == "add_habit")
@@ -44,8 +63,7 @@ async def cb_add_habit(cb: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(CreateHabitStates.preset)
     await state.update_data(page=0, selected_preset=None, weekdays=[], times=[], lang=lang, is_premium=is_premium)
 
-    presets = habit_service.PRESETS[: habit_service.FREE_PRESET_LIMIT if not is_premium else 20]
-    kb = presets_grid(presets, 0, lang, is_premium)
+    kb = presets_grid(habit_service.PRESETS, 0, lang, is_premium)
     await cb.message.edit_text(t(lang, "habit_presets"), reply_markup=kb)
 
 
@@ -61,15 +79,13 @@ async def cb_preset_select(cb: CallbackQuery, state: FSMContext) -> None:
     if cb.data == "preset_prev":
         page = max(0, page - 1)
         await state.update_data(page=page)
-        presets = habit_service.PRESETS[: 20 if is_premium else habit_service.FREE_PRESET_LIMIT]
-        kb = presets_grid(presets, page, lang, is_premium)
+        kb = presets_grid(habit_service.PRESETS, page, lang, is_premium)
         await cb.message.edit_text(t(lang, "habit_presets"), reply_markup=kb)
         return
     if cb.data == "preset_next":
         page += 1
         await state.update_data(page=page)
-        presets = habit_service.PRESETS[: 20 if is_premium else habit_service.FREE_PRESET_LIMIT]
-        kb = presets_grid(presets, page, lang, is_premium)
+        kb = presets_grid(habit_service.PRESETS, page, lang, is_premium)
         await cb.message.edit_text(t(lang, "habit_presets"), reply_markup=kb)
         return
     tid = cb.from_user.id if cb.from_user else 0
@@ -89,7 +105,10 @@ async def cb_preset_select(cb: CallbackQuery, state: FSMContext) -> None:
         idx = int(cb.data.split("_")[1])
     except (ValueError, IndexError):
         return
-    presets = habit_service.PRESETS[: 20 if is_premium else habit_service.FREE_PRESET_LIMIT]
+    if not is_premium and idx >= habit_service.FREE_PRESET_LIMIT:
+        await cb.answer(t(lang, "premium_locked_alert"), show_alert=True)
+        return
+    presets = habit_service.PRESETS
     title = presets[idx] if 0 <= idx < len(presets) else ""
     await state.update_data(selected_preset=title, habit_title=title, custom=False)
     await state.set_state(CreateHabitStates.days)
