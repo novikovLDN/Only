@@ -17,5 +17,6 @@ class Payment(Base):
     amount: Mapped[int] = mapped_column(Integer, nullable=False)
     provider: Mapped[str] = mapped_column(String(50), nullable=False)
     external_payment_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default="completed")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    invoice_message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
