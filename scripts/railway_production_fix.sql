@@ -77,6 +77,9 @@ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
+-- invoice_message_id for safe payment flow (delete invoice after paid)
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS invoice_message_id BIGINT NULL;
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);
 CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
