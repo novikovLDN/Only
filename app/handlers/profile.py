@@ -82,6 +82,7 @@ async def _send_profile(target, user, ref_count: int, fname: str, lang: str, is_
 async def cb_profile(cb: CallbackQuery) -> None:
     await cb.answer()
     tid = cb.from_user.id if cb.from_user else 0
+    achievement_service.clear_achievements_screen(tid)
     fname = cb.from_user.first_name if cb.from_user else ""
 
     sm = get_session_maker()
@@ -147,11 +148,13 @@ async def cb_profile_achievements(cb: CallbackQuery) -> None:
         if not user:
             return
         lang = user.language_code
+        text = await achievement_service.build_achievements_header(session, user.id, lang)
         ach_list = await achievement_service.get_achievements_with_status(session, user.id, lang)
 
-    text = t(lang, "achievements_title")
     kb = achievements_keyboard(ach_list, page, lang, len(ach_list))
-    await safe_edit_or_send(cb, text, reply_markup=kb)
+    loc = await safe_edit_or_send(cb, text, reply_markup=kb)
+    if loc:
+        achievement_service.set_achievements_screen(tid, loc[0], loc[1])
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith("ach_view:"))

@@ -4,13 +4,18 @@ import logging
 from datetime import datetime, timezone
 
 from aiogram import Bot
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Achievement, User, UserAchievement
 from app.services import metrics_service, referral_service
 
 logger = logging.getLogger(__name__)
+
+TOTAL_ACHIEVEMENTS = 50
+
+# Cache for auto-update: telegram_id -> (chat_id, message_id)
+_achievements_screen_cache: dict[int, tuple[int, int]] = {}
 
 CONDITIONS = {
     "FIRST_STEP": lambda m: m["habits_created"] >= 1,
@@ -120,6 +125,74 @@ async def _get_unlocked_ids(session: AsyncSession, user_id: int) -> set[int]:
     return set(row[0] for row in r.all())
 
 
+async def get_achievement_progress(session: AsyncSession, user_id: int) -> tuple[int, int]:
+    """Return (unlocked_count, percent). No caching, always from DB."""
+    r = await session.execute(
+        select(func.count()).select_from(UserAchievement).where(UserAchievement.user_id == user_id)
+    )
+    unlocked = r.scalar() or 0
+    percent = min(100, int((unlocked / TOTAL_ACHIEVEMENTS) * 100))
+    return unlocked, percent
+
+
+def build_achievements_progress_bar(percent: int, length: int = 10) -> str:
+    """Telegram-safe progress bar: 🟩 filled, ⬜ empty."""
+    filled = min(length, max(0, int((percent / 100) * length)))
+    empty = length - filled
+    bar = "🟩" * filled + "⬜" * empty
+    return f"{bar} {percent}%"
+
+
+async def build_achievements_header(session: AsyncSession, user_id: int, lang: str) -> str:
+    """Build header with progress for achievements screen. RU/EN."""
+    unlocked, percent = await get_achievement_progress(session, user_id)
+    bar = build_achievements_progress_bar(percent)
+    lang = "en" if (lang or "").lower() == "en" else "ru"
+    if lang == "ru":
+        return f"🏆 Достижения\n\nПрогресс: {unlocked}/50\n{bar}\n\n"
+    return f"🏆 Achievements\n\nProgress: {unlocked}/50\n{bar}\n\n"
+
+
+def set_achievements_screen(telegram_id: int, chat_id: int, message_id: int) -> None:
+    """Store message location for auto-update on unlock."""
+    _achievements_screen_cache[telegram_id] = (chat_id, message_id)
+
+
+def clear_achievements_screen(telegram_id: int) -> None:
+    """Remove from cache when user leaves achievements."""
+    _achievements_screen_cache.pop(telegram_id, None)
+
+
+async def refresh_achievements_screen_if_open(
+    bot: Bot,
+    session: AsyncSession,
+    telegram_id: int,
+    user_id: int,
+    user: User | None,
+) -> None:
+    """If achievements screen is open, edit it with updated progress."""
+    entry = _achievements_screen_cache.get(telegram_id)
+    if not entry:
+        return
+    chat_id, message_id = entry
+    lang = (user.language_code or "ru")[:2].lower() if user else "ru"
+    lang = "en" if lang == "en" else "ru"
+    try:
+        text = await build_achievements_header(session, user_id, lang)
+        ach_list = await get_achievements_with_status(session, user_id, lang)
+        from app.keyboards.achievements import achievements_keyboard
+        kb = achievements_keyboard(ach_list, 0, lang, len(ach_list))
+        await bot.edit_message_text(
+            chat_id=chat_id,
+            message_id=message_id,
+            text=text,
+            reply_markup=kb,
+        )
+    except Exception as e:
+        logger.debug("Could not refresh achievements screen: %s", e)
+        _achievements_screen_cache.pop(telegram_id, None)
+
+
 async def check_achievements(
     session: AsyncSession,
     user_id: int,
@@ -162,6 +235,12 @@ async def check_achievements(
                         logger.warning("Failed to send achievement unlock: %s", e)
         except Exception as e:
             logger.warning("Achievement %s check failed: %s", code, e)
+
+    if newly_unlocked and bot and telegram_id and user:
+        try:
+            await refresh_achievements_screen_if_open(bot, session, telegram_id, user_id, user)
+        except Exception as e:
+            logger.debug("Refresh achievements screen failed: %s", e)
 
     return newly_unlocked
 
