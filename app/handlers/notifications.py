@@ -9,7 +9,7 @@ from aiogram.types import CallbackQuery
 from app.db import get_session_maker
 from app.keyboards import main_menu
 from app.keyboards.reminder import reminder_buttons, skip_reasons
-from app.services import habit_log_service, reminders as rem_svc, user_service, xp_service
+from app.services import achievement_service, habit_log_service, reminders as rem_svc, user_service, xp_service
 from app.texts import t
 
 router = Router(name="notifications")
@@ -37,6 +37,9 @@ async def cb_habit_done(cb: CallbackQuery) -> None:
         await rem_svc.record_phrase_usage(session, user.id, habit_id, idx)
         await session.refresh(user)
         await xp_service.add_xp(user, session, cb.bot)
+        await achievement_service.check_achievements(
+            session, user.id, user, cb.bot, user.telegram_id
+        )
         await session.commit()
         is_premium = user_service.is_premium(user)
         fname = cb.from_user.first_name if cb.from_user else ""

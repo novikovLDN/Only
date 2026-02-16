@@ -15,8 +15,11 @@ async def extend_subscription(session: AsyncSession, user_id: int, days: int) ->
     if not user:
         return
     now = datetime.now(timezone.utc)
-    base = user.subscription_until if user.subscription_until and user.subscription_until > now else now
-    user.subscription_until = base + timedelta(days=days)
+    pu = user.premium_until
+    if pu and (pu.replace(tzinfo=timezone.utc) if pu.tzinfo is None else pu) > now:
+        user.premium_until = pu + timedelta(days=days)
+    else:
+        user.premium_until = now + timedelta(days=days)
     await session.flush()
 
 

@@ -6,6 +6,7 @@ from aiogram.types import CallbackQuery, LabeledPrice, Message, PreCheckoutQuery
 from app.config import settings
 from app.db import get_session_maker
 from app.keyboards import main_menu, subscription_menu
+from app.services import achievement_service
 from app.services.payments import TARIFF_DAYS, extend_subscription, get_days_from_payload
 from app.texts import t
 from sqlalchemy import select
@@ -71,10 +72,13 @@ async def successful_payment(message: Message) -> None:
         user = r.scalar_one_or_none()
         if user:
             await extend_subscription(session, user.id, days)
+            await achievement_service.check_achievements(
+                session, user.id, user, message.bot, user.telegram_id
+            )
             await session.commit()
         lang = user.language_code if user else "en"
 
-    await message.answer(t(lang, "sub_success"), reply_markup=main_menu(lang))
+    await message.answer(t(lang, "premium_success"), reply_markup=main_menu(lang))
 
 
 @router.pre_checkout_query()

@@ -8,10 +8,11 @@ from aiogram.types import CallbackQuery, Message
 from app.core.levels import get_required_xp
 from app.db import get_session_maker
 from app.keyboards import back_only
+from app.keyboards.achievements import achievements_keyboard
 from app.keyboards.profile import profile_keyboard
 from app.utils.progress import build_progress_bar
 from app.utils.safe_edit import safe_edit_or_send
-from app.services import habit_log_service, referral_service, user_service
+from app.services import achievement_service, habit_log_service, referral_service, user_service
 from app.texts import t
 
 router = Router(name="profile")
@@ -121,10 +122,24 @@ async def cb_profile_statistics(cb: CallbackQuery) -> None:
     await safe_edit_or_send(cb, text, reply_markup=back_only(lang, "profile"))
 
 
-@router.callback_query(lambda c: c.data == "profile_achievements")
+def _ach_page(c: str) -> int | None:
+    if c and c.startswith("ach_page_"):
+        try:
+            return int(c.split("_")[-1])
+        except (ValueError, IndexError):
+            pass
+    return None
+
+
+@router.callback_query(lambda c: c.data == "profile_achievements" or (c.data and c.data.startswith("ach_page_")))
 async def cb_profile_achievements(cb: CallbackQuery) -> None:
     await cb.answer()
     tid = cb.from_user.id if cb.from_user else 0
+    page = 0
+    if cb.data and cb.data.startswith("ach_page_"):
+        p = _ach_page(cb.data)
+        if p is not None and p >= 0:
+            page = p
 
     sm = get_session_maker()
     async with sm() as session:
@@ -132,22 +147,42 @@ async def cb_profile_achievements(cb: CallbackQuery) -> None:
         if not user:
             return
         lang = user.language_code
-        done = await habit_log_service.count_done(session, user.id)
-        streak = await habit_log_service.get_max_streak(session, user.id)
+        ach_list = await achievement_service.get_achievements_with_status(session, user.id, lang)
 
-    a10 = "✅" if done >= 10 else "🔒"
-    a50 = "✅" if done >= 50 else "🔒"
-    a100 = "✅" if done >= 100 else "🔒"
-    a_streak = "✅" if streak >= 10 else "🔒"
+    text = t(lang, "achievements_title")
+    kb = achievements_keyboard(ach_list, page, lang, len(ach_list))
+    await safe_edit_or_send(cb, text, reply_markup=kb)
 
-    text = (
-        f"{t(lang, 'achievements_title')}\n\n"
-        f"{a10} {t(lang, 'ach_10_habits')}\n"
-        f"{a50} {t(lang, 'ach_50_habits')}\n"
-        f"{a100} {t(lang, 'ach_100_habits')}\n"
-        f"{a_streak} {t(lang, 'ach_10_streak')}"
-    )
-    await safe_edit_or_send(cb, text, reply_markup=back_only(lang, "profile"))
+
+@router.callback_query(lambda c: c.data and c.data.startswith("ach_view:"))
+async def cb_ach_view(cb: CallbackQuery) -> None:
+    tid = cb.from_user.id if cb.from_user else 0
+    sm = get_session_maker()
+    async with sm() as session:
+        user = await user_service.get_by_telegram_id(session, tid)
+        lang = user.language_code if user else "ru"
+    await cb.answer(t(lang, "ach_unlocked_msg"))
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("ach_lock:"))
+async def cb_ach_lock(cb: CallbackQuery) -> None:
+    aid = int(cb.data.split(":")[1])
+    tid = cb.from_user.id if cb.from_user else 0
+    sm = get_session_maker()
+    async with sm() as session:
+        user = await user_service.get_by_telegram_id(session, tid)
+        if not user:
+            await cb.answer()
+            return
+        lang = user.language_code
+        ach = await achievement_service.get_achievement_by_id(session, aid)
+        if not ach:
+            await cb.answer()
+            return
+        desc = ach.description_ru if lang == "ru" else ach.description_en
+        prefix = t(lang, "ach_locked_prefix")
+        msg = f"{prefix} {desc}"
+    await cb.answer(msg, show_alert=True)
 
 
 @router.callback_query(lambda c: c.data == "profile_missed")

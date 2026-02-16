@@ -11,7 +11,7 @@ from app.db import get_session_maker
 from app.keyboards import back_only, main_menu
 from app.core.habit_presets import get_preset_title
 from app.keyboards.habits import build_presets_keyboard, weekdays_keyboard, time_keyboard, confirm_keyboard
-from app.services import habit_service, user_service
+from app.services import achievement_service, habit_service, user_service
 from app.texts import t
 
 router = Router(name="habits_create")
@@ -249,6 +249,9 @@ async def cb_confirm_ok(cb: CallbackQuery, state: FSMContext) -> None:
         if not user:
             return
         await habit_service.create(session, user.id, title, weekdays, times)
+        await achievement_service.check_achievements(
+            session, user.id, user, cb.bot, user.telegram_id
+        )
         await session.commit()
         lang = user.language_code
 

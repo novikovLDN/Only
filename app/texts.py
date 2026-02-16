@@ -112,6 +112,10 @@ TEXTS = {
         "ach_50_habits": "50 привычек",
         "ach_100_habits": "100 привычек",
         "ach_10_streak": "10 дней подряд",
+        "ach_unlocked_msg": "Так держать!",
+        "ach_locked_prefix": "Целевое действие для достижения:",
+        "ach_prev": "⬅️ Назад",
+        "ach_next": "➡️ Далее",
     },
     "en": {
         "lang_prompt": "Choose language 🌍",
@@ -224,6 +228,10 @@ TEXTS = {
         "ach_50_habits": "50 habits",
         "ach_100_habits": "100 habits",
         "ach_10_streak": "10 day streak",
+        "ach_unlocked_msg": "Keep it up!",
+        "ach_locked_prefix": "Requirement:",
+        "ach_prev": "⬅️ Prev",
+        "ach_next": "➡️ Next",
     },
 }
 

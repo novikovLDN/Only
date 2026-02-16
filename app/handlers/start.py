@@ -9,7 +9,7 @@ from aiogram.types import CallbackQuery, Message
 
 from app.db import get_session_maker
 from app.keyboards import lang_select, main_menu, tz_select
-from app.services import referral_service, user_service
+from app.services import achievement_service, referral_service, user_service
 from app.texts import t
 from app.utils.safe_edit import safe_edit_or_send
 
@@ -45,7 +45,14 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
             session, tid, uname, fname, telegram_language_code=tlang
         )
         if ref_id and ref_id != user.id:
-            await referral_service.create_referral(session, ref_id, user.id)
+            ref = await referral_service.create_referral(session, ref_id, user.id)
+            if ref:
+                from app.models import User
+                referrer = await session.get(User, ref_id)
+                if referrer:
+                    await achievement_service.check_achievements(
+                        session, referrer.id, referrer, message.bot, referrer.telegram_id
+                    )
         await session.commit()
         lang = user.language_code
         is_premium = user_service.is_premium(user)
