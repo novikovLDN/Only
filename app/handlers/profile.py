@@ -1,9 +1,9 @@
-"""Profile screen — single message with photo."""
+"""Profile screen — single message with photo + caption."""
 
 from datetime import datetime, timezone
 
 from aiogram import Router
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, Message
 
 from app.core.levels import get_required_xp
 from app.db import get_session_maker
@@ -17,31 +17,64 @@ from app.texts import t
 router = Router(name="profile")
 
 
-def _build_profile_caption(user, lang: str, ref_count: int, done: int, skipped: int, fname: str = "") -> str:
-    premium_str = t(lang, "profile_no_premium")
+def _format_date_ru(dt: datetime) -> str:
+    return dt.strftime("%d.%m.%Y")
+
+
+def _format_date_en(dt: datetime) -> str:
+    return dt.strftime("%d %B %Y")
+
+
+def _build_profile_caption(user, lang: str, ref_count: int, fname: str = "") -> str:
+    """Build profile caption with emojis. One message: photo + caption."""
+    lang = "en" if (lang or "").lower() == "en" else "ru"
+    name = fname or getattr(user, "first_name", None) or "there"
+
     if user.premium_until:
         pu = user.premium_until
         if pu.tzinfo is None:
             pu = pu.replace(tzinfo=timezone.utc)
         if pu > datetime.now(timezone.utc):
-            premium_str = t(lang, "profile_premium_until").format(
-                date=user.premium_until.strftime("%Y-%m-%d")
-            )
+            premium_date = _format_date_ru(pu) if lang == "ru" else _format_date_en(pu)
+        else:
+            premium_date = "—"
+    else:
+        premium_date = "—"
+
     xp = getattr(user, "xp", 0) or 0
     level = getattr(user, "level", 1) or 1
     required = get_required_xp(level)
     progress = build_progress_bar(xp, required)
-    name = fname or getattr(user, "first_name", None) or "there"
+
+    if lang == "ru":
+        return (
+            f"👋 Рады тебя видеть, {name}!\n\n"
+            f"💎 Подписка активна до: {premium_date}\n"
+            f"🤝 Приглашено друзей: {ref_count}\n\n"
+            f"⭐ Ваш уровень: {level}\n{progress}"
+        )
     return (
-        t(lang, "profile_title").format(name=name)
-        + f"\n\n{premium_str}\n"
-        + t(lang, "profile_referrals").format(count=ref_count)
-        + "\n\n"
-        + t(lang, "your_level") + f": {level}\n{progress}\n\n"
-        + t(lang, "profile_done").format(count=done)
-        + "\n"
-        + t(lang, "profile_skipped").format(count=skipped)
+        f"👋 Glad to see you, {name}!\n\n"
+        f"💎 Premium active until: {premium_date}\n"
+        f"🤝 Friends invited: {ref_count}\n\n"
+        f"⭐ Your level: {level}\n{progress}"
     )
+
+
+async def _send_profile(target, user, ref_count: int, fname: str, lang: str, is_premium: bool) -> None:
+    """Send profile as ONE message: photo + caption, or text only. No edit_text."""
+    caption = _build_profile_caption(user, lang, ref_count, fname)
+    kb = profile_keyboard(lang, is_premium)
+    tid = user.telegram_id
+    try:
+        photos = await target.bot.get_user_profile_photos(tid, limit=1)
+        if photos.total_count > 0:
+            file_id = photos.photos[0][-1].file_id
+            await target.answer_photo(photo=file_id, caption=caption, reply_markup=kb)
+        else:
+            await target.answer(caption, reply_markup=kb)
+    except Exception:
+        await target.answer(caption, reply_markup=kb)
 
 
 @router.callback_query(lambda c: c.data == "profile")
@@ -57,15 +90,13 @@ async def cb_profile(cb: CallbackQuery) -> None:
             return
         lang = user.language_code
         ref_count = await referral_service.count_referrals(session, user.id)
-        done = await habit_log_service.count_done(session, user.id)
-        skipped = await habit_log_service.count_skipped(session, user.id)
 
     is_premium = user_service.is_premium(user)
-    caption = _build_profile_caption(user, lang, ref_count, done, skipped, fname or "")
-    kb = profile_keyboard(lang, is_premium)
-
-    # Edit in place (from main menu or Back from statistics/achievements)
-    await safe_edit_or_send(cb, caption, reply_markup=kb)
+    try:
+        await cb.message.delete()
+    except Exception:
+        pass
+    await _send_profile(cb.message, user, ref_count, fname or "", lang, is_premium)
 
 
 @router.callback_query(lambda c: c.data == "profile_statistics")

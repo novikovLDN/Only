@@ -6,13 +6,13 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
 from app.db import get_session_maker
-from app.handlers.profile import _build_profile_caption
+from app.handlers.profile import _send_profile
 from app.keyboards import back_only, main_menu
 from app.keyboards.habits import build_presets_keyboard, habits_list
 from app.keyboards.premium import premium_menu
 from app.keyboards.profile import profile_keyboard
 from app.keyboards.settings import settings_menu
-from app.services import habit_service, habit_log_service, referral_service, user_service
+from app.services import habit_service, referral_service, user_service
 from app.texts import t
 
 router = Router(name="commands")
@@ -78,28 +78,9 @@ async def cmd_profile(message: Message, state: FSMContext) -> None:
             return
         lang = user.language_code
         ref_count = await referral_service.count_referrals(session, user.id)
-        done = await habit_log_service.count_done(session, user.id)
-        skipped = await habit_log_service.count_skipped(session, user.id)
 
     is_premium = user_service.is_premium(user)
-    caption = _build_profile_caption(
-        user, lang, ref_count, done, skipped, fname or ""
-    )
-    kb = profile_keyboard(lang, is_premium)
-
-    try:
-        photos = await message.bot.get_user_profile_photos(tid, limit=1)
-        if photos.total_count > 0:
-            file_id = photos.photos[0][-1].file_id
-            await message.answer_photo(
-                photo=file_id,
-                caption=caption,
-                reply_markup=kb,
-            )
-        else:
-            await message.answer(caption, reply_markup=kb)
-    except Exception:
-        await message.answer(caption, reply_markup=kb)
+    await _send_profile(message, user, ref_count, fname or "", lang, is_premium)
 
 
 @router.message(Command("premium"))
