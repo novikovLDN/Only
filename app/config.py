@@ -41,3 +41,4 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
+ADMIN_ID = 6214188086

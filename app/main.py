@@ -16,6 +16,7 @@ from app.logger import setup_logging
 from app.scheduler import setup_scheduler, shutdown_scheduler
 
 from app.handlers import (
+    admin,
     commands,
     habits_create,
     habits_edit,
@@ -38,6 +39,7 @@ def _create_bot_and_dp() -> tuple[Bot, Dispatcher]:
     )
     dp = Dispatcher(storage=MemoryStorage())
 
+    dp.include_router(admin.router)
     dp.include_router(commands.router)
     dp.include_router(habits_create.router)
     dp.include_router(start.router)
