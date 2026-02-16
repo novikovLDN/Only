@@ -10,11 +10,21 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from app.config import settings
-from app.db import close_db, init_db
+from app.database import close_db, init_db
 from app.logger import setup_logging
 from app.scheduler import setup_scheduler, shutdown_scheduler
 
-from app.handlers import callbacks, habits, payments, profile, reminders, settings as settings_handler, start
+from app.handlers import (
+    habits_create,
+    habits_edit,
+    loyalty,
+    main_menu,
+    notifications,
+    premium,
+    profile,
+    settings as settings_handler,
+    start,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -26,13 +36,15 @@ def _create_bot_and_dp() -> tuple[Bot, Dispatcher]:
     )
     dp = Dispatcher(storage=MemoryStorage())
 
-    dp.include_router(callbacks.router)
+    dp.include_router(habits_create.router)
     dp.include_router(start.router)
-    dp.include_router(habits.router)
+    dp.include_router(main_menu.router)
+    dp.include_router(habits_edit.router)
     dp.include_router(profile.router)
+    dp.include_router(premium.router)
+    dp.include_router(loyalty.router)
     dp.include_router(settings_handler.router)
-    dp.include_router(payments.router)
-    dp.include_router(reminders.router)
+    dp.include_router(notifications.router)
 
     return bot, dp
 

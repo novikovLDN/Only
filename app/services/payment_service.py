@@ -1,58 +1,47 @@
-"""Payment service — Telegram Invoice / YooKassa."""
+"""Payment service — YooKassa / Telegram payments."""
 
-from datetime import datetime, timedelta, timezone
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.models import Payment, User
-from app.core.tariffs import TARIFFS
-from app.repositories.payment_repo import PaymentRepository
-from app.repositories.user_repo import UserRepository
+from app.models import Payment, User
+from app.services.user_service import extend_premium
+from app.services.referral_service import get_referral, give_reward_if_pending
 
 
-class PaymentService:
-    def __init__(self, payment_repo: PaymentRepository, user_repo: UserRepository):
-        self.payment_repo = payment_repo
-        self.user_repo = user_repo
+TARIFF_MONTHS = {1: 1, 3: 3, 6: 6, 12: 12}
 
-    def get_tariff(self, tariff_key: str) -> dict | None:
-        return TARIFFS.get(tariff_key)
 
-    async def create_payment(self, user: User, tariff_key: str, provider: str = "card") -> Payment | None:
-        tariff = TARIFFS.get(tariff_key)
-        if not tariff:
-            return None
+async def record_payment(
+    session: AsyncSession,
+    user_id: int,
+    amount: int,
+    provider_charge_id: str | None = None,
+    telegram_charge_id: str | None = None,
+) -> Payment:
+    months = 1
+    for m, price in [(1, 199), (3, 499), (6, 799), (12, 1299)]:
+        if amount >= price:
+            months = m
+    p = Payment(
+        user_id=user_id,
+        amount=amount,
+        provider_payment_charge_id=provider_charge_id,
+        telegram_payment_charge_id=telegram_charge_id,
+    )
+    session.add(p)
+    await session.flush()
 
-        payment = await self.payment_repo.create(
-            user_id=user.id,
-            tariff=tariff_key,
-            provider=provider,
-            amount=tariff["price"],
+    user = await session.get(User, user_id)
+    if user:
+        await extend_premium(session, user, months)
+        # Check referral reward
+        from sqlalchemy import select
+        from app.models import Referral
+        ref_result = await session.execute(
+            select(Referral).where(Referral.referral_user_id == user_id)
         )
-        session = self.payment_repo.session
-        await session.commit()
-        await session.refresh(payment)
-        return payment
+        referral = ref_result.scalar_one_or_none()
+        if referral:
+            await give_reward_if_pending(session, referral)
 
-    async def confirm_payment(self, payment_id: int) -> bool:
-        payment = await self.payment_repo.get_by_id(payment_id)
-        if not payment or payment.status != "pending":
-            return False
-
-        tariff = TARIFFS.get(payment.tariff)
-        if not tariff:
-            return False
-
-        payment.status = "succeeded"
-        user = await self.user_repo.get_by_id(payment.user_id)
-        if not user:
-            return False
-
-        now = datetime.now(timezone.utc)
-        if user.subscription_until and user.subscription_until > now:
-            base = user.subscription_until
-        else:
-            base = now
-        user.subscription_until = base + timedelta(days=tariff["days"])
-
-        session = self.payment_repo.session
-        await session.commit()
-        return True
+    await session.refresh(p)
+    return p

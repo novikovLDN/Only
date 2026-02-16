@@ -1,30 +1,83 @@
 """User service."""
 
-from app.core.models import User
-from app.repositories.user_repo import UserRepository
+from datetime import datetime, timedelta, timezone
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import User
 
 
-class UserService:
-    def __init__(self, repo: UserRepository):
-        self.repo = repo
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
 
-    async def get_or_create(
-        self,
-        telegram_id: int,
-        username: str | None,
-        first_name: str,
-        language: str | None = None,
-        invited_by_id: int | None = None,
-    ) -> tuple[User, bool]:
-        return await self.repo.get_or_create(
-            telegram_id, username, first_name, language, invited_by_id
-        )
 
-    async def update_language(self, user: User, language: str) -> None:
-        await self.repo.update_language(user, language)
+def is_premium(user: User) -> bool:
+    if not user.premium_until:
+        return False
+    pu = user.premium_until
+    if pu.tzinfo is None:
+        pu = pu.replace(tzinfo=timezone.utc)
+    return pu > _now()
 
-    async def extend_subscription(self, user: User, days: int) -> None:
-        await self.repo.extend_subscription(user, days)
 
-    async def count_referrals(self, user_id: int) -> int:
-        return await self.repo.count_referrals(user_id)
+async def get_or_create(
+    session: AsyncSession,
+    telegram_id: int,
+    username: str | None = None,
+    first_name: str | None = None,
+    telegram_language_code: str | None = None,
+) -> tuple[User, bool]:
+    result = await session.execute(select(User).where(User.telegram_id == telegram_id))
+    user = result.scalar_one_or_none()
+    if user:
+        return user, False
+
+    lang = (telegram_language_code or "ru")[:2].lower() if telegram_language_code else "ru"
+    if lang not in ("ru", "en"):
+        lang = "ru"
+
+    user = User(
+        telegram_id=telegram_id,
+        username=username,
+        first_name=first_name,
+        language_code=lang,
+        timezone="UTC",
+    )
+    session.add(user)
+    await session.flush()
+    await session.refresh(user)
+    return user, True
+
+
+async def get_by_telegram_id(session: AsyncSession, telegram_id: int) -> User | None:
+    result = await session.execute(select(User).where(User.telegram_id == telegram_id))
+    return result.scalar_one_or_none()
+
+
+async def update_language(session: AsyncSession, user: User, language_code: str) -> None:
+    user.language_code = "ru" if language_code not in ("ru", "en") else language_code
+    await session.flush()
+
+
+async def update_timezone(session: AsyncSession, user: User, timezone: str) -> None:
+    user.timezone = timezone or "UTC"
+    await session.flush()
+
+
+async def extend_premium(session: AsyncSession, user: User, months: int) -> None:
+    now = _now()
+    if user.premium_until and user.premium_until > now:
+        user.premium_until = user.premium_until + timedelta(days=months * 30)
+    else:
+        user.premium_until = now + timedelta(days=months * 30)
+    await session.flush()
+
+
+async def add_reward_days(session: AsyncSession, user: User, days: int) -> None:
+    user.premium_reward_days = (user.premium_reward_days or 0) + days
+    if user.premium_until and (user.premium_until.replace(tzinfo=timezone.utc) if user.premium_until.tzinfo is None else user.premium_until) > _now():
+        user.premium_until = user.premium_until + timedelta(days=days)
+    else:
+        user.premium_until = _now() + timedelta(days=days)
+    await session.flush()

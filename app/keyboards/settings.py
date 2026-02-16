@@ -24,16 +24,16 @@ def lang_select(next_step: str = "tz") -> InlineKeyboardMarkup:
     )
 
 
-def tz_select(lang: str) -> InlineKeyboardMarkup:
+def tz_select(lang: str, prefix: str = "tz_") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=t(lang, "tz_utc"), callback_data="tz_UTC")],
-            [InlineKeyboardButton(text=t(lang, "tz_moscow"), callback_data="tz_Europe/Moscow")],
-            [InlineKeyboardButton(text=t(lang, "tz_london"), callback_data="tz_Europe/London")],
-            [InlineKeyboardButton(text=t(lang, "tz_dubai"), callback_data="tz_Asia/Dubai")],
-            [InlineKeyboardButton(text=t(lang, "tz_almaty"), callback_data="tz_Asia/Almaty")],
-            [InlineKeyboardButton(text=t(lang, "tz_ny"), callback_data="tz_America/New_York")],
-            [InlineKeyboardButton(text=t(lang, "tz_other"), callback_data="tz_other")],
+            [InlineKeyboardButton(text=t(lang, "tz_utc"), callback_data=f"{prefix}UTC")],
+            [InlineKeyboardButton(text=t(lang, "tz_moscow"), callback_data=f"{prefix}Europe/Moscow")],
+            [InlineKeyboardButton(text=t(lang, "tz_london"), callback_data=f"{prefix}Europe/London")],
+            [InlineKeyboardButton(text=t(lang, "tz_dubai"), callback_data=f"{prefix}Asia/Dubai")],
+            [InlineKeyboardButton(text=t(lang, "tz_almaty"), callback_data=f"{prefix}Asia/Almaty")],
+            [InlineKeyboardButton(text=t(lang, "tz_ny"), callback_data=f"{prefix}America/New_York")],
+            [InlineKeyboardButton(text=t(lang, "tz_other"), callback_data=f"{prefix}other")],
         ]
     )
 

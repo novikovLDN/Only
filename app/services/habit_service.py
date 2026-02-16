@@ -1,53 +1,98 @@
 """Habit service."""
 
-from datetime import time
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.constants import FREE_HABITS_LIMIT
-from app.core.models import Habit, User
-from app.repositories.habit_repo import HabitRepository
+from app.models import Habit, HabitTime
 
 
-class HabitService:
-    def __init__(self, repo: HabitRepository, user_repo):
-        self.repo = repo
-        self.user_repo = user_repo
+PRESETS = [
+    "Пить воду",
+    "Зарядка",
+    "Медитация",
+    "Читать книгу",
+    "Ранний подъем",
+    "Прогулка",
+    "Учить язык",
+    "Планирование дня",
+    "Дневник",
+    "Сон 8 часов",
+    "Тренировка",
+    "Без сахара",
+    "Без соцсетей",
+    "Витамины",
+    "Осознанность",
+    "Благодарность",
+    "Изучение навыка",
+    "Работа без отвлечений",
+    "Улыбка",
+    "Растяжка",
+]
 
-    def _is_premium(self, user: User) -> bool:
-        if user.subscription_until is None:
-            return False
-        from datetime import datetime, timezone
-        return user.subscription_until > datetime.now(timezone.utc)
+FREE_PRESET_LIMIT = 3
 
-    async def can_add_habit(self, user: User) -> bool:
-        count = await self.repo.count_user_habits(user.id)
-        return count < FREE_HABITS_LIMIT or self._is_premium(user)
 
-    async def can_add_custom(self, user: User) -> bool:
-        return self._is_premium(user)
+async def create(
+    session: AsyncSession,
+    user_id: int,
+    title: str,
+    weekdays: list[int],
+    times: list[str],
+) -> Habit:
+    habit = Habit(user_id=user_id, title=title, is_active=True)
+    session.add(habit)
+    await session.flush()
+    for wd in weekdays:
+        for t in times:
+            ht = HabitTime(habit_id=habit.id, weekday=wd, time=t)
+            session.add(ht)
+    await session.flush()
+    await session.refresh(habit)
+    return habit
 
-    async def create_habit(
-        self,
-        user: User,
-        title: str,
-        is_custom: bool,
-        weekdays: list[int],
-        times: list[time],
-    ) -> Habit:
-        return await self.repo.create(
-            user.id, title, is_custom, weekdays, times
-        )
 
-    async def get_user_habits(self, user_id: int) -> list[Habit]:
-        return await self.repo.get_user_habits(user_id)
+async def get_user_habits(session: AsyncSession, user_id: int) -> list[Habit]:
+    result = await session.execute(
+        select(Habit).where(Habit.user_id == user_id, Habit.is_active == True).order_by(Habit.created_at)
+    )
+    return list(result.scalars().unique().all())
 
-    async def get_habit(self, habit_id: int) -> Habit | None:
-        return await self.repo.get_by_id(habit_id)
 
-    async def update_days(self, habit: Habit, weekdays: list[int]) -> None:
-        await self.repo.update_days(habit, weekdays)
+async def get_by_id(session: AsyncSession, habit_id: int) -> Habit | None:
+    result = await session.execute(select(Habit).where(Habit.id == habit_id))
+    return result.scalar_one_or_none()
 
-    async def update_times(self, habit: Habit, times: list[time]) -> None:
-        await self.repo.update_times(habit, times)
 
-    async def delete_habit(self, habit: Habit) -> None:
-        await self.repo.delete(habit)
+async def get_habit_times(session: AsyncSession, habit_id: int) -> list[tuple[int, str]]:
+    result = await session.execute(
+        select(HabitTime.weekday, HabitTime.time).where(HabitTime.habit_id == habit_id)
+    )
+    return result.all()
+
+
+async def update_habit_times(
+    session: AsyncSession,
+    habit_id: int,
+    weekdays: list[int],
+    times: list[str],
+) -> None:
+    from sqlalchemy import delete
+    await session.execute(delete(HabitTime).where(HabitTime.habit_id == habit_id))
+    for wd in weekdays:
+        for t in times:
+            ht = HabitTime(habit_id=habit_id, weekday=wd, time=t)
+            session.add(ht)
+    await session.flush()
+
+
+async def delete_habit(session: AsyncSession, habit: Habit) -> None:
+    await session.delete(habit)
+    await session.flush()
+
+
+async def count_user_habits(session: AsyncSession, user_id: int) -> int:
+    from sqlalchemy import func
+    result = await session.execute(
+        select(func.count()).select_from(Habit).where(Habit.user_id == user_id, Habit.is_active == True)
+    )
+    return result.scalar() or 0

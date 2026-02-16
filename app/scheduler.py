@@ -1,4 +1,4 @@
-"""APScheduler — habit reminders every 60s, timezone-aware."""
+"""APScheduler — habit reminders every 60s, habit_time + timezone."""
 
 import logging
 from datetime import date, datetime
@@ -8,10 +8,10 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import select
 
-from app.db import get_session_maker
+from app.database import get_session_maker
 from app.keyboards.reminder import reminder_buttons
-from app.models import Habit, User
-from app.services import reminders as rem_svc
+from app.models import Habit, HabitTime, User
+from app.services import habit_log_service, reminders as rem_svc
 
 logger = logging.getLogger(__name__)
 
@@ -28,17 +28,20 @@ def get_scheduler() -> AsyncIOScheduler:
 
 
 async def run_reminders(bot) -> None:
-    """Every 60s: for each habit, if user's local time matches remind_time and no log today → send reminder."""
+    """Every 60s: habit_time JOIN habit JOIN user, match weekday+time in user TZ."""
     try:
         sm = get_session_maker()
         async with sm() as s:
             result = await s.execute(
-                select(Habit, User).join(User, Habit.user_id == User.id).where(Habit.is_active == True)
+                select(HabitTime, Habit, User)
+                .join(Habit, HabitTime.habit_id == Habit.id)
+                .join(User, Habit.user_id == User.id)
+                .where(Habit.is_active == True)
             )
             rows = result.all()
 
         tz_cache = {}
-        for habit, user in rows:
+        for ht, habit, user in rows:
             tz_name = user.timezone or "UTC"
             try:
                 tz = tz_cache.get(tz_name) or ZoneInfo(tz_name)
@@ -48,13 +51,22 @@ async def run_reminders(bot) -> None:
 
             now_dt = datetime.now(tz)
             today = now_dt.date()
-            now_hour, now_min = now_dt.hour, now_dt.minute
-            rt = habit.remind_time
-            if rt.hour != now_hour or rt.minute != now_min:
+            weekday = (now_dt.weekday() + 1) % 7
+            if weekday != ht.weekday:
+                continue
+
+            h, m = 0, 0
+            try:
+                parts = ht.time.split(":")
+                h, m = int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
+            except (ValueError, IndexError):
+                continue
+
+            if now_dt.hour != h or now_dt.minute != m:
                 continue
 
             async with sm() as session:
-                if await rem_svc.has_log_today(session, user.id, habit.id, today):
+                if await habit_log_service.has_log_today(session, user.id, habit.id, today):
                     continue
 
                 lang = user.language_code if user.language_code in ("ru", "en") else "ru"
@@ -65,7 +77,8 @@ async def run_reminders(bot) -> None:
                 await session.commit()
 
             try:
-                text = f"🟢 {habit.title}\n\n{phrase}"
+                from app.texts import t
+                text = t(lang, "notification_format").format(title=habit.title, time=ht.time)
                 await bot.send_message(
                     chat_id=user.telegram_id,
                     text=text,
