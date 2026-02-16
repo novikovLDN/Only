@@ -28,19 +28,27 @@ def habits_list(habits: list[tuple[int, str]], lang: str) -> InlineKeyboardMarku
 def presets_grid(presets: list[str], page: int, lang: str, is_premium: bool) -> InlineKeyboardMarkup:
     start = page * PAGE_SIZE
     chunk = presets[start : start + PAGE_SIZE]
+    left_column = chunk[:3]
+    right_column = chunk[3:6]
     rows = []
-    row = []
-    for i, title in enumerate(chunk):
-        idx = start + i
-        if is_premium or idx < 3:
-            row.append(InlineKeyboardButton(text=title, callback_data=f"preset_{idx}"))
-        else:
-            row.append(InlineKeyboardButton(text=f"{title} 🔒", callback_data="premium_required"))
-        if len(row) == 3:
+    for i in range(3):
+        row = []
+        if i < len(left_column):
+            idx = start + i
+            title = left_column[i]
+            if is_premium or idx < 3:
+                row.append(InlineKeyboardButton(text=title, callback_data=f"preset_{idx}"))
+            else:
+                row.append(InlineKeyboardButton(text=f"{title} 🔒", callback_data="premium_required"))
+        if i < len(right_column):
+            idx = start + i + 3
+            title = right_column[i]
+            if is_premium or idx < 3:
+                row.append(InlineKeyboardButton(text=title, callback_data=f"preset_{idx}"))
+            else:
+                row.append(InlineKeyboardButton(text=f"{title} 🔒", callback_data="premium_required"))
+        if row:
             rows.append(row)
-            row = []
-    if row:
-        rows.append(row)
     nav = []
     if page > 0:
         nav.append(InlineKeyboardButton(text=t(lang, "habit_preset_prev"), callback_data="preset_prev"))
