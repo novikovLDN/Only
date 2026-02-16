@@ -42,7 +42,7 @@ async def cb_lang_onboard(cb: CallbackQuery) -> None:
     async with sm() as session:
         from sqlalchemy import select
         from app.models import User
-        r = await session.execute(select(User).where(User.telegram_id == tid)
+        r = await session.execute(select(User).where(User.telegram_id == tid))
         user = r.scalar_one_or_none()
         if user:
             await users.update_language(session, user, lang)
@@ -61,7 +61,7 @@ async def cb_tz(cb: CallbackQuery) -> None:
     async with sm() as session:
         from sqlalchemy import select
         from app.models import User
-        r = await session.execute(select(User).where(User.telegram_id == tid)
+        r = await session.execute(select(User).where(User.telegram_id == tid))
         user = r.scalar_one_or_none()
         if user:
             await users.update_timezone(session, user, tz)
