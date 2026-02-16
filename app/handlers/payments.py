@@ -72,8 +72,9 @@ async def successful_payment(message: Message) -> None:
         user = r.scalar_one_or_none()
         if user:
             await extend_subscription(session, user.id, days)
+            await session.commit()
             await achievement_service.check_achievements(
-                session, user.id, user, message.bot, user.telegram_id
+                session, user.id, user, message.bot, user.telegram_id, trigger="subscription_purchased"
             )
             await session.commit()
         lang = user.language_code if user else "en"

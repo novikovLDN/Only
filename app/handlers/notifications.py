@@ -37,8 +37,9 @@ async def cb_habit_done(cb: CallbackQuery) -> None:
         await rem_svc.record_phrase_usage(session, user.id, habit_id, idx)
         await session.refresh(user)
         await xp_service.add_xp(user, session, cb.bot)
+        await session.commit()
         await achievement_service.check_achievements(
-            session, user.id, user, cb.bot, user.telegram_id
+            session, user.id, user, cb.bot, user.telegram_id, trigger="habit_completed"
         )
         await session.commit()
         is_premium = user_service.is_premium(user)
@@ -91,6 +92,10 @@ async def cb_skip_reason(cb: CallbackQuery) -> None:
         if await habit_log_service.has_log_today(session, user.id, habit_id, today):
             return
         await habit_log_service.log_skipped(session, habit_id, user.id, today)
+        await session.commit()
+        await achievement_service.check_achievements(
+            session, user.id, user, cb.bot, user.telegram_id, trigger="habit_missed"
+        )
         await session.commit()
         lang = user.language_code
         is_premium = user_service.is_premium(user)

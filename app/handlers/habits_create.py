@@ -249,8 +249,9 @@ async def cb_confirm_ok(cb: CallbackQuery, state: FSMContext) -> None:
         if not user:
             return
         await habit_service.create(session, user.id, title, weekdays, times)
+        await session.commit()
         await achievement_service.check_achievements(
-            session, user.id, user, cb.bot, user.telegram_id
+            session, user.id, user, cb.bot, user.telegram_id, trigger="habit_created"
         )
         await session.commit()
         lang = user.language_code

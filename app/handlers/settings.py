@@ -5,7 +5,7 @@ from aiogram.types import CallbackQuery
 
 from app.db import get_session_maker
 from app.keyboards import main_menu, settings_menu, lang_select, tz_select
-from app.services import user_service
+from app.services import achievement_service, user_service
 from app.texts import t
 
 router = Router(name="settings")
@@ -49,6 +49,11 @@ async def cb_settz_select(cb: CallbackQuery) -> None:
         if user:
             await user_service.update_timezone(session, user, tz)
         await session.commit()
+        if user:
+            await achievement_service.check_achievements(
+                session, user.id, user, cb.bot, user.telegram_id, trigger="profile_updated"
+            )
+            await session.commit()
         lang = user.language_code if user else "en"
 
     await cb.message.edit_text(t(lang, "settings_menu"), reply_markup=settings_menu(lang))
@@ -82,6 +87,11 @@ async def cb_lang_select(cb: CallbackQuery) -> None:
         if user:
             await user_service.update_language(session, user, lang)
         await session.commit()
+        if user:
+            await achievement_service.check_achievements(
+                session, user.id, user, cb.bot, user.telegram_id, trigger="profile_updated"
+            )
+            await session.commit()
 
     confirm_key = "lang_updated_ru" if lang == "ru" else "lang_updated_en"
     await cb.message.edit_text(t(lang, confirm_key), reply_markup=settings_menu(lang))

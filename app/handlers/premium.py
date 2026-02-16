@@ -6,7 +6,7 @@ from aiogram.types import CallbackQuery, Message, PreCheckoutQuery
 from app.db import get_session_maker
 from app.config import settings
 from app.keyboards import main_menu, premium_menu
-from app.services import user_service
+from app.services import achievement_service, user_service
 from app.utils.safe_edit import safe_edit_or_send
 from app.texts import t
 
@@ -116,6 +116,17 @@ async def successful_payment(message: Message) -> None:
                     pass
 
         await session.commit()
+        await achievement_service.check_achievements(
+            session, user.id, user, message.bot, user.telegram_id, trigger="subscription_purchased"
+        )
+        await session.commit()
+        if referral:
+            referrer = await session.get(User, referral.referrer_id)
+            if referrer:
+                await achievement_service.check_achievements(
+                    session, referrer.id, referrer, message.bot, referrer.telegram_id, trigger="friend_invited"
+                )
+                await session.commit()
         invoice_msg_id = payment.invoice_message_id
 
     if invoice_msg_id:

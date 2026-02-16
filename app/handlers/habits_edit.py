@@ -11,7 +11,7 @@ from app.keyboards.habits import (
     edit_weekdays_keyboard,
     habits_list,
 )
-from app.services import habit_service, metrics_service, user_service
+from app.services import achievement_service, habit_service, metrics_service, user_service
 from app.texts import t
 
 router = Router(name="habits_edit")
@@ -118,6 +118,10 @@ async def cb_edit_wd_toggle(cb: CallbackQuery) -> None:
             if goal_increased:
                 await metrics_service.mark_habit_goal_increased(session, user.id)
             await session.commit()
+            await achievement_service.check_achievements(
+                session, user.id, user, cb.bot, user.telegram_id, trigger="habit_modified"
+            )
+            await session.commit()
 
     await cb.message.edit_text(
         t(lang, "habit_select_days"),
@@ -205,6 +209,10 @@ async def cb_edit_tm_toggle(cb: CallbackQuery) -> None:
             await metrics_service.mark_habit_modified(session, user.id, user)
             if goal_increased:
                 await metrics_service.mark_habit_goal_increased(session, user.id)
+            await session.commit()
+            await achievement_service.check_achievements(
+                session, user.id, user, cb.bot, user.telegram_id, trigger="habit_modified"
+            )
             await session.commit()
 
     await cb.message.edit_text(

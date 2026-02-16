@@ -199,8 +199,10 @@ async def check_achievements(
     user: User | None,
     bot: Bot | None,
     telegram_id: int | None = None,
+    trigger: str = "",
 ) -> list[Achievement]:
-    """Check and unlock achievements. Returns newly unlocked achievements."""
+    """Check and unlock achievements. Call AFTER session.commit(). Returns newly unlocked achievements."""
+    logger.info("Checking achievements for user_id=%s trigger=%s", user_id, trigger or "unknown")
     result = await session.execute(select(Achievement))
     all_achievements = {a.code: a for a in result.scalars().unique().all()}
     unlocked_ids = await _get_unlocked_ids(session, user_id)
@@ -221,6 +223,7 @@ async def check_achievements(
                     await metrics_service.reset_flexibility_flags(session, user_id)
                 elif code == "GROWTH":
                     await metrics_service.reset_growth_flag(session, user_id)
+                logger.info("Unlocked achievement %s for user_id=%s", code, user_id)
                 if bot and telegram_id:
                     lang = (user.language_code or "ru")[:2].lower()
                     lang = "en" if lang == "en" else "ru"

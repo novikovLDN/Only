@@ -44,16 +44,23 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
         user, created = await user_service.get_or_create(
             session, tid, uname, fname, telegram_language_code=tlang
         )
+        ref = None
         if ref_id and ref_id != user.id:
             ref = await referral_service.create_referral(session, ref_id, user.id)
-            if ref:
-                from app.models import User
-                referrer = await session.get(User, ref_id)
-                if referrer:
-                    await achievement_service.check_achievements(
-                        session, referrer.id, referrer, message.bot, referrer.telegram_id
-                    )
         await session.commit()
+        if ref:
+            from app.models import User
+            referrer = await session.get(User, ref_id)
+            if referrer:
+                await achievement_service.check_achievements(
+                    session, referrer.id, referrer, message.bot, referrer.telegram_id, trigger="friend_invited"
+                )
+                await session.commit()
+        if not created:
+            await achievement_service.check_achievements(
+                session, user.id, user, message.bot, user.telegram_id, trigger="user_returns"
+            )
+            await session.commit()
         lang = user.language_code
         is_premium = user_service.is_premium(user)
         if created or user.language_code not in ("ru", "en"):
@@ -80,6 +87,11 @@ async def cb_lang_onboard(cb: CallbackQuery) -> None:
         if user:
             await user_service.update_language(session, user, lang)
         await session.commit()
+        if user:
+            await achievement_service.check_achievements(
+                session, user.id, user, cb.bot, user.telegram_id, trigger="profile_updated"
+            )
+            await session.commit()
 
     await cb.message.edit_text(t(lang, "tz_prompt"), reply_markup=tz_select(lang))
 
@@ -100,6 +112,11 @@ async def cb_tz(cb: CallbackQuery) -> None:
         if user:
             await user_service.update_timezone(session, user, tz)
         await session.commit()
+        if user:
+            await achievement_service.check_achievements(
+                session, user.id, user, cb.bot, user.telegram_id, trigger="profile_updated"
+            )
+            await session.commit()
         lang = user.language_code if user else "en"
         is_premium = user_service.is_premium(user) if user else False
 
