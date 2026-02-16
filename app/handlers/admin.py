@@ -11,6 +11,8 @@ from sqlalchemy import func, select, update
 
 from app.config import ADMIN_ID
 from app.db import get_session_maker
+from app.services import user_service
+from app.texts import _normalize_lang, t
 from app.keyboards.admin import (
     admin_back_keyboard,
     admin_habits_keyboard,
@@ -39,12 +41,21 @@ def _now_utc() -> datetime:
 
 @router.message(Command("admin"))
 async def admin_entry(message: Message) -> None:
-    if not _is_admin(message.from_user.id if message.from_user else None):
-        await message.answer("Ай ай ай, сюда нельзя 😉")
+    tid = message.from_user.id if message.from_user else None
+    if not _is_admin(tid):
+        sm = get_session_maker()
+        async with sm() as session:
+            user = await user_service.get_by_telegram_id(session, tid or 0)
+            lang = user.language_code if user else "ru"
+        await message.answer(t(lang, "admin_denied"))
         return
+    sm = get_session_maker()
+    async with sm() as session:
+        admin_user = await user_service.get_by_telegram_id(session, ADMIN_ID)
+        lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
     await message.answer(
-        "🔐 Админ-панель",
-        reply_markup=admin_main_keyboard(),
+        t(lang, "admin_panel"),
+        reply_markup=admin_main_keyboard(lang),
     )
 
 
@@ -54,9 +65,14 @@ async def admin_back(cb: CallbackQuery, state: FSMContext) -> None:
         return
     await cb.answer()
     await state.clear()
+    tid = cb.from_user.id if cb.from_user else 0
+    sm = get_session_maker()
+    async with sm() as session:
+        admin_user = await user_service.get_by_telegram_id(session, tid)
+        lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
     await cb.message.edit_text(
-        "🔐 Админ-панель",
-        reply_markup=admin_main_keyboard(),
+        t(lang, "admin_panel"),
+        reply_markup=admin_main_keyboard(lang),
     )
 
 
@@ -65,6 +81,7 @@ async def admin_stats(cb: CallbackQuery) -> None:
     if not _is_admin(cb.from_user.id if cb.from_user else None):
         return
     await cb.answer()
+    tid = cb.from_user.id if cb.from_user else 0
     sm = get_session_maker()
     async with sm() as session:
         total_users = await session.scalar(select(func.count()).select_from(User))
@@ -75,11 +92,13 @@ async def admin_stats(cb: CallbackQuery) -> None:
                 User.premium_until > now,
             )
         )
+        admin_user = await user_service.get_by_telegram_id(session, tid)
+        lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
     await cb.message.edit_text(
-        f"📊 Статистика:\n\n"
-        f"Всего пользователей: {total_users or 0}\n"
-        f"Активных подписок: {active_subs or 0}",
-        reply_markup=admin_main_keyboard(),
+        f"{t(lang, 'admin_stats_title')}\n\n"
+        f"{t(lang, 'admin_stats_users')}: {total_users or 0}\n"
+        f"{t(lang, 'admin_stats_subs')}: {active_subs or 0}",
+        reply_markup=admin_main_keyboard(lang),
     )
 
 
@@ -88,10 +107,15 @@ async def admin_users(cb: CallbackQuery, state: FSMContext) -> None:
     if not _is_admin(cb.from_user.id if cb.from_user else None):
         return
     await cb.answer()
+    tid = cb.from_user.id if cb.from_user else 0
+    sm = get_session_maker()
+    async with sm() as session:
+        admin_user = await user_service.get_by_telegram_id(session, tid)
+        lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
     await state.set_state(AdminStates.search_user)
     await cb.message.edit_text(
-        "🔎 Введите ID или @username пользователя:",
-        reply_markup=admin_back_keyboard(),
+        t(lang, "admin_search_prompt"),
+        reply_markup=admin_back_keyboard(lang),
     )
 
 
@@ -102,6 +126,7 @@ async def admin_search_user(message: Message, state: FSMContext) -> None:
     query = (message.text or "").strip().replace("@", "")
     if not query:
         return
+    tid = message.from_user.id if message.from_user else 0
     sm = get_session_maker()
     async with sm() as session:
         if query.isdigit():
@@ -110,28 +135,32 @@ async def admin_search_user(message: Message, state: FSMContext) -> None:
             result = await session.execute(select(User).where(User.username == query))
         user = result.scalar_one_or_none()
         if not user:
-            await message.answer("❌ Пользователь не найден", reply_markup=admin_back_keyboard())
+            admin_user = await user_service.get_by_telegram_id(session, tid)
+            lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
+            await message.answer(t(lang, "admin_user_not_found"), reply_markup=admin_back_keyboard(lang))
             return
         habits_count = await session.scalar(
             select(func.count()).select_from(Habit).where(Habit.user_id == user.id, Habit.is_active == True)
         )
-    sub_status = "Неактивна"
+        admin_user = await user_service.get_by_telegram_id(session, tid)
+        lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
+    sub_status = t(lang, "admin_sub_no")
     if user.premium_until:
         pu = user.premium_until
         if pu.tzinfo is None:
             pu = pu.replace(tzinfo=timezone.utc)
         if pu > _now_utc():
-            sub_status = f"Активна до {user.premium_until.strftime('%d.%m.%Y')}"
+            sub_status = t(lang, "admin_sub_active", date=user.premium_until.strftime("%d.%m.%Y"))
     created = user.created_at.strftime("%d.%m.%Y") if user.created_at else "—"
     username_str = f"@{user.username}" if user.username else "—"
     await message.answer(
-        f"👤 Пользователь:\n\n"
+        f"👤 {t(lang, 'admin_user_label')}:\n\n"
         f"TG ID: {user.telegram_id}\n"
         f"Username: {username_str}\n"
-        f"Регистрация: {created}\n"
-        f"Подписка: {sub_status}\n"
-        f"Активных привычек: {habits_count or 0}",
-        reply_markup=admin_user_actions_keyboard(user.telegram_id),
+        f"{t(lang, 'admin_reg_label')}: {created}\n"
+        f"{t(lang, 'admin_sub_label')}: {sub_status}\n"
+        f"{t(lang, 'admin_habits_label')}: {habits_count or 0}",
+        reply_markup=admin_user_actions_keyboard(user.telegram_id, lang),
     )
     await state.clear()
 
@@ -142,11 +171,16 @@ async def admin_grant(cb: CallbackQuery, state: FSMContext) -> None:
         return
     await cb.answer()
     tg_id = int(cb.data.split(":")[1])
+    tid = cb.from_user.id if cb.from_user else 0
+    sm = get_session_maker()
+    async with sm() as session:
+        admin_user = await user_service.get_by_telegram_id(session, tid)
+        lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
     await state.update_data(admin_grant_tg_id=tg_id)
     await state.set_state(AdminStates.grant_duration)
     await cb.message.edit_text(
-        "⏳ Введите срок (пример: 30d, 2m, 10h, 15min):",
-        reply_markup=admin_back_keyboard(),
+        t(lang, "admin_grant_prompt"),
+        reply_markup=admin_back_keyboard(lang),
     )
 
 
@@ -160,15 +194,19 @@ async def admin_apply_grant(message: Message, state: FSMContext) -> None:
         await state.clear()
         return
     duration = parse_admin_duration(message.text or "")
-    if not duration:
-        await message.answer("❌ Неверный формат. Пример: 30d, 2m, 10h")
-        return
+    tid = message.from_user.id if message.from_user else 0
     sm = get_session_maker()
+    async with sm() as session:
+        admin_user = await user_service.get_by_telegram_id(session, tid)
+        lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
+    if not duration:
+        await message.answer(t(lang, "admin_invalid_format"))
+        return
     async with sm() as session:
         result = await session.execute(select(User).where(User.telegram_id == tg_id))
         user = result.scalar_one_or_none()
         if not user:
-            await message.answer("❌ Пользователь не найден")
+            await message.answer(t(lang, "admin_user_not_found"))
             await state.clear()
             return
         now = _now_utc()
@@ -183,7 +221,7 @@ async def admin_apply_grant(message: Message, state: FSMContext) -> None:
         else:
             user.premium_until = now + duration
         await session.commit()
-    await message.answer("✅ Доступ выдан")
+    await message.answer(t(lang, "admin_grant_ok"))
     await state.clear()
 
 
@@ -193,13 +231,16 @@ async def admin_revoke(cb: CallbackQuery) -> None:
         return
     await cb.answer()
     tg_id = int(cb.data.split(":")[1])
+    tid = cb.from_user.id if cb.from_user else 0
     sm = get_session_maker()
     async with sm() as session:
         await session.execute(
             update(User).where(User.telegram_id == tg_id).values(premium_until=None)
         )
         await session.commit()
-    await cb.message.answer("❌ Подписка удалена")
+        admin_user = await user_service.get_by_telegram_id(session, tid)
+        lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
+    await cb.message.answer(t(lang, "admin_sub_revoked"))
 
 
 @router.callback_query(F.data == "admin_habits")
@@ -212,20 +253,21 @@ async def admin_habits(cb: CallbackQuery) -> None:
     async with sm() as session:
         result = await session.execute(select(User).where(User.telegram_id == tid))
         user = result.scalar_one_or_none()
+        lang = _normalize_lang(user.language_code) if user else "ru"
         if not user:
-            await cb.message.edit_text("❌ Пользователь не найден", reply_markup=admin_back_keyboard())
+            await cb.message.edit_text(t(lang, "admin_user_not_found"), reply_markup=admin_back_keyboard(lang))
             return
         habits = await habit_service.get_user_habits(session, user.id)
     if not habits:
         await cb.message.edit_text(
-            "🧪 Нет привычек",
-            reply_markup=admin_back_keyboard(),
+            t(lang, "admin_no_habits"),
+            reply_markup=admin_back_keyboard(lang),
         )
         return
     hs = [(h.id, h.title) for h in habits]
     await cb.message.edit_text(
-        "🧪 Удалить привычку:",
-        reply_markup=admin_habits_keyboard(hs),
+        t(lang, "admin_delete_habit_title"),
+        reply_markup=admin_habits_keyboard(hs, lang),
     )
 
 
@@ -235,10 +277,13 @@ async def admin_delete_habit(cb: CallbackQuery) -> None:
         return
     await cb.answer()
     habit_id = int(cb.data.split(":")[1])
+    tid = cb.from_user.id if cb.from_user else 0
     sm = get_session_maker()
     async with sm() as session:
         habit = await habit_service.get_by_id(session, habit_id)
         if habit:
             await habit_service.delete_habit(session, habit)
             await session.commit()
-    await cb.message.answer("🗑 Привычка удалена")
+        admin_user = await user_service.get_by_telegram_id(session, tid)
+        lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
+    await cb.message.answer(t(lang, "admin_habit_deleted"))

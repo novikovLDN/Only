@@ -176,7 +176,7 @@ async def cb_time(cb: CallbackQuery, state: FSMContext) -> None:
         wd_names = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
         days_str = ", ".join(wd_names[d] for d in sorted(data.get("weekdays", [])))
         times_str = ", ".join(sorted(times))
-        text = f"{t(lang, 'habit_confirm')}\n\nПривычка: {title}\nДни: {days_str}\nВремя: {times_str}"
+        text = f"{t(lang, 'habit_confirm')}\n\n{t(lang, 'habit_label')}: {title}\n{t(lang, 'days_label')}: {days_str}\n{t(lang, 'time_label')}: {times_str}"
         await cb.message.edit_text(text, reply_markup=confirm_keyboard(lang))
         return
 

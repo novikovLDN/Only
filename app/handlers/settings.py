@@ -83,4 +83,5 @@ async def cb_lang_select(cb: CallbackQuery) -> None:
             await user_service.update_language(session, user, lang)
         await session.commit()
 
-    await cb.message.edit_text(t(lang, "settings_menu"), reply_markup=settings_menu(lang))
+    confirm_key = "lang_updated_ru" if lang == "ru" else "lang_updated_en"
+    await cb.message.edit_text(t(lang, confirm_key), reply_markup=settings_menu(lang))

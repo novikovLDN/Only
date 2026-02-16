@@ -31,7 +31,7 @@ async def cb_edit_habits(cb: CallbackQuery) -> None:
         habits = await habit_service.get_user_habits(session, user.id)
 
     if not habits:
-        await cb.message.edit_text(t(lang, "btn_edit_habits") + "\n\nНет привычек.", reply_markup=back_only(lang))
+        await cb.message.edit_text(t(lang, "btn_edit_habits") + "\n\n" + t(lang, "edit_no_habits"), reply_markup=back_only(lang))
         return
 
     hs = [(h.id, h.title) for h in habits]
@@ -55,7 +55,7 @@ async def cb_habit_detail(cb: CallbackQuery) -> None:
         lang = user.language_code
 
     await cb.message.edit_text(
-        f"{habit.title}\n\nИзменить дни / время / удалить:",
+        f"{habit.title}\n\n{t(lang, 'edit_habit_prompt')}",
         reply_markup=edit_habit_menu(habit_id, lang),
     )
 
@@ -137,7 +137,7 @@ async def cb_edit_days_ok(cb: CallbackQuery) -> None:
         lang = user.language_code
 
     await cb.message.edit_text(
-        f"{habit.title}\n\nИзменить дни / время / удалить:",
+        f"{habit.title}\n\n{t(lang, 'edit_habit_prompt')}",
         reply_markup=edit_habit_menu(habit_id, lang),
     )
 
@@ -220,7 +220,7 @@ async def cb_edit_time_ok(cb: CallbackQuery) -> None:
         lang = user.language_code
 
     await cb.message.edit_text(
-        f"{habit.title}\n\nИзменить дни / время / удалить:",
+        f"{habit.title}\n\n{t(lang, 'edit_habit_prompt')}",
         reply_markup=edit_habit_menu(habit_id, lang),
     )
 
@@ -244,6 +244,6 @@ async def cb_habit_delete(cb: CallbackQuery) -> None:
         lang = user.language_code
 
     await cb.message.edit_text(
-        "✅ Привычка удалена",
+        t(lang, "habit_deleted"),
         reply_markup=main_menu(lang, user_service.is_premium(user)),
     )

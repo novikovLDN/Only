@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from app.database import get_session_maker
 from app.keyboards.reminder import reminder_buttons
+from app.texts import _normalize_lang, t
 from app.models import Habit, HabitTime, User
 from app.services import habit_log_service, reminders as rem_svc
 
@@ -71,7 +72,7 @@ async def run_reminders(bot) -> None:
                 if await habit_log_service.has_log_today(session, user.id, habit.id, today):
                     continue
 
-                lang = user.language_code if user.language_code in ("ru", "en") else "ru"
+                lang = _normalize_lang(user.language_code)
                 await rem_svc.reset_usage_if_needed(session, user.id, lang)
                 used = await rem_svc.get_used_indices(session, user.id)
                 phrase, idx = rem_svc.get_phrase(lang, used)
@@ -79,9 +80,8 @@ async def run_reminders(bot) -> None:
                 await session.commit()
 
             try:
-                from app.texts import t
                 time_str = ht.time.strftime("%H:%M") if hasattr(ht.time, "strftime") else str(ht.time)
-                text = t(lang, "notification_format").format(title=habit.title, time=time_str)
+                text = t(lang, "notification_format", title=habit.title, time=time_str)
                 await bot.send_message(
                     chat_id=user.telegram_id,
                     text=text,

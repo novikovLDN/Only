@@ -63,6 +63,43 @@ TEXTS = {
         "loyalty_link": "Твоя ссылка:",
         "referral_bonus_notify": "🎉 Ваш друг купил Premium!\n\n🎁 Вам начислено +7 дней подписки!",
         "notification_format": "Привычка: {title}\nВремя: {time}",
+        "edit_no_habits": "Нет привычек.",
+        "habit_label": "Привычка",
+        "days_label": "Дни",
+        "time_label": "Время",
+        "admin_denied": "Ай ай ай, сюда нельзя 😉",
+        "lang_updated_ru": "Язык переключен на русский 🇷🇺",
+        "lang_updated_en": "Язык переключен на английский 🇬🇧",
+        "profile_missed": "Пропущенные",
+        "habit_deleted": "✅ Привычка удалена",
+        "edit_habit_prompt": "Изменить дни / время / удалить:",
+        "edit_days_btn": "Изменить дни",
+        "edit_time_btn": "Изменить время",
+        "delete_btn": "Удалить",
+        "admin_no_habits": "🧪 Нет привычек",
+        "admin_habit_deleted": "🗑 Привычка удалена",
+        "admin_delete_habit_title": "🧪 Удалить привычку:",
+        "admin_panel": "🔐 Админ-панель",
+        "admin_stats_title": "📊 Статистика:",
+        "admin_stats_users": "Всего пользователей",
+        "admin_stats_subs": "Активных подписок",
+        "admin_search_prompt": "🔎 Введите ID или @username пользователя:",
+        "admin_user_not_found": "❌ Пользователь не найден",
+        "admin_grant_prompt": "⏳ Введите срок (пример: 30d, 2m, 10h, 15min):",
+        "admin_invalid_format": "❌ Неверный формат. Пример: 30d, 2m, 10h",
+        "admin_grant_ok": "✅ Доступ выдан",
+        "admin_sub_revoked": "❌ Подписка удалена",
+        "admin_btn_users": "👥 Пользователи",
+        "admin_btn_stats": "📊 Статистика",
+        "admin_btn_my_habits": "🧪 Мои привычки",
+        "admin_btn_grant": "✅ Выдать подписку",
+        "admin_btn_revoke": "❌ Лишить подписки",
+        "admin_user_label": "Пользователь",
+        "admin_reg_label": "Регистрация",
+        "admin_sub_label": "Подписка",
+        "admin_habits_label": "Активных привычек",
+        "admin_sub_active": "Активна до {date}",
+        "admin_sub_no": "Нет",
     },
     "en": {
         "lang_prompt": "Choose language 🌍",
@@ -126,11 +163,61 @@ TEXTS = {
         "loyalty_link": "Your link:",
         "referral_bonus_notify": "🎉 Your friend bought Premium!\n\n🎁 You received +7 days subscription!",
         "notification_format": "Habit: {title}\nTime: {time}",
+        "edit_no_habits": "No habits yet.",
+        "habit_label": "Habit",
+        "days_label": "Days",
+        "time_label": "Time",
+        "admin_denied": "Access denied 😉",
+        "lang_updated_ru": "Language switched to Russian 🇷🇺",
+        "lang_updated_en": "Language switched to English 🇬🇧",
+        "profile_missed": "Missed",
+        "habit_deleted": "✅ Habit deleted",
+        "edit_habit_prompt": "Change days / time / delete:",
+        "edit_days_btn": "Change days",
+        "edit_time_btn": "Change time",
+        "delete_btn": "Delete",
+        "admin_no_habits": "🧪 No habits",
+        "admin_habit_deleted": "🗑 Habit deleted",
+        "admin_delete_habit_title": "🧪 Delete habit:",
+        "admin_panel": "🔐 Admin Panel",
+        "admin_stats_title": "📊 Statistics:",
+        "admin_stats_users": "Total users",
+        "admin_stats_subs": "Active subscriptions",
+        "admin_search_prompt": "🔎 Enter user ID or @username:",
+        "admin_user_not_found": "❌ User not found",
+        "admin_grant_prompt": "⏳ Enter duration (e.g. 30d, 2m, 10h, 15min):",
+        "admin_invalid_format": "❌ Invalid format. Example: 30d, 2m, 10h",
+        "admin_grant_ok": "✅ Access granted",
+        "admin_sub_revoked": "❌ Subscription revoked",
+        "admin_btn_users": "👥 Users",
+        "admin_btn_stats": "📊 Statistics",
+        "admin_btn_my_habits": "🧪 My habits",
+        "admin_btn_grant": "✅ Grant subscription",
+        "admin_btn_revoke": "❌ Revoke subscription",
+        "admin_user_label": "User",
+        "admin_reg_label": "Registered",
+        "admin_sub_label": "Subscription",
+        "admin_habits_label": "Active habits",
+        "admin_sub_active": "Active until {date}",
+        "admin_sub_no": "No",
     },
 }
 
 SUPPORT_URL = "https://t.me/asc_support"
 
 
-def t(lang: str, key: str) -> str:
-    return TEXTS.get(lang, TEXTS["en"]).get(key, key)
+def _normalize_lang(lang: str | None) -> str:
+    """Ensure lang is 'ru' or 'en'. Default: 'ru'."""
+    if not lang:
+        return "ru"
+    code = (lang or "")[:2].lower()
+    return "en" if code == "en" else "ru"
+
+
+def t(lang: str, key: str, **kwargs) -> str:
+    """Get translated text. Use **kwargs for .format()."""
+    lang = _normalize_lang(lang)
+    text = TEXTS.get(lang, TEXTS["en"]).get(key, key)
+    if kwargs:
+        return text.format(**kwargs)
+    return text

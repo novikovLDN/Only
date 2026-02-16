@@ -105,9 +105,9 @@ def confirm_keyboard(lang: str) -> InlineKeyboardMarkup:
 def edit_habit_menu(habit_id: int, lang: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Изменить дни", callback_data=f"edit_days:{habit_id}")],
-            [InlineKeyboardButton(text="Изменить время", callback_data=f"edit_time:{habit_id}")],
-            [InlineKeyboardButton(text="Удалить", callback_data=f"habit_delete:{habit_id}")],
+            [InlineKeyboardButton(text=t(lang, "edit_days_btn"), callback_data=f"edit_days:{habit_id}")],
+            [InlineKeyboardButton(text=t(lang, "edit_time_btn"), callback_data=f"edit_time:{habit_id}")],
+            [InlineKeyboardButton(text=t(lang, "delete_btn"), callback_data=f"habit_delete:{habit_id}")],
             [InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="edit_habits")],
         ]
     )

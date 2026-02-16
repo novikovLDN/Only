@@ -59,7 +59,7 @@ async def cmd_edit(message: Message, state: FSMContext) -> None:
         habits = await habit_service.get_user_habits(session, user.id)
 
     if not habits:
-        await message.answer(t(lang, "btn_edit_habits") + "\n\n" + "Нет привычек.", reply_markup=back_only(lang))
+        await message.answer(t(lang, "btn_edit_habits") + "\n\n" + t(lang, "edit_no_habits"), reply_markup=back_only(lang))
         return
 
     hs = [(h.id, h.title) for h in habits]
