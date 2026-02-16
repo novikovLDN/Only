@@ -58,6 +58,7 @@ TEXTS = {
         "settings_menu": "Настройки",
         "loyalty_title": "Приглашай друзей — получай 7 дней Premium за каждого.",
         "loyalty_link": "Твоя ссылка:",
+        "referral_bonus_notify": "🎉 Ваш друг купил Premium!\n\n🎁 Вам начислено +7 дней подписки!",
         "notification_format": "Привычка: {title}\nВремя: {time}",
     },
     "en": {
@@ -117,6 +118,7 @@ TEXTS = {
         "settings_menu": "Settings",
         "loyalty_title": "Invite friends — get 7 days Premium for each.",
         "loyalty_link": "Your link:",
+        "referral_bonus_notify": "🎉 Your friend bought Premium!\n\n🎁 You received +7 days subscription!",
         "notification_format": "Habit: {title}\nTime: {time}",
     },
 }

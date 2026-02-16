@@ -90,6 +90,7 @@ async def successful_payment(message: Message) -> None:
             tariff=tariff,
             provider="telegram",
             external_payment_id=ext_id or None,
+            bot=message.bot,
         )
         await session.commit()
 

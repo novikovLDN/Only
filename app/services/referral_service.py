@@ -13,13 +13,13 @@ async def create_referral(
 ) -> Referral | None:
     if referrer_id == referral_user_id:
         return None
-    existing = await session.execute(
-        select(Referral).where(
-            Referral.referrer_id == referrer_id,
-            Referral.referral_user_id == referral_user_id,
-        )
+    referrer = await session.get(User, referrer_id)
+    if not referrer:
+        return None
+    existing_by_referral = await session.execute(
+        select(Referral).where(Referral.referral_user_id == referral_user_id)
     )
-    if existing.scalar_one_or_none():
+    if existing_by_referral.scalar_one_or_none():
         return None
     ref = Referral(referrer_id=referrer_id, referral_user_id=referral_user_id)
     session.add(ref)
@@ -53,13 +53,15 @@ async def count_referrals(session: AsyncSession, user_id: int) -> int:
 async def give_reward_if_pending(
     session: AsyncSession,
     referral: Referral,
-) -> bool:
+) -> User | None:
+    """Apply +7 days to referrer, increment premium_reward_days. Returns referrer if reward given."""
     if referral.reward_given:
-        return False
+        return None
     referral.reward_given = True
     referrer = await session.get(User, referral.referrer_id)
-    if referrer:
-        from app.services.user_service import add_reward_days
-        await add_reward_days(session, referrer, 7)
+    if not referrer:
+        return None
+    from app.services.user_service import add_reward_days
+    await add_reward_days(session, referrer, 7)
     await session.flush()
-    return True
+    return referrer
