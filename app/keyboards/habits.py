@@ -2,10 +2,53 @@
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+from app.core.habit_presets import HABIT_PRESETS
 from app.texts import t
 
 PAGE_SIZE = 6
 WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+
+
+def build_presets_keyboard(lang: str, is_premium: bool, page: int = 0) -> InlineKeyboardMarkup:
+    """Build preset habit buttons with RU/EN labels and premium lock. 2 cols x 3 rows, pagination."""
+    lang = "en" if (lang or "").lower() == "en" else "ru"
+    per_page = 6
+    start = page * per_page
+    end = start + per_page
+    presets = HABIT_PRESETS[start:end]
+
+    keyboard = []
+    row = []
+    for preset in presets:
+        if not is_premium and preset["id"] > 3:
+            text = f"🔒 {preset[lang]}"
+            callback = "premium_required"
+        else:
+            text = preset[lang]
+            callback = f"select_preset_{preset['id']}"
+        row.append(InlineKeyboardButton(text=text, callback_data=callback))
+        if len(row) == 2:
+            keyboard.append(row)
+            row = []
+    if row:
+        keyboard.append(row)
+
+    pagination = []
+    if page > 0:
+        pagination.append(InlineKeyboardButton(text=t(lang, "habit_preset_prev"), callback_data=f"preset_page_{page - 1}"))
+    if end < len(HABIT_PRESETS):
+        pagination.append(InlineKeyboardButton(text=t(lang, "habit_preset_next"), callback_data=f"preset_page_{page + 1}"))
+    if pagination:
+        keyboard.append(pagination)
+
+    custom_btn = InlineKeyboardButton(
+        text=t(lang, "habit_custom") if is_premium else t(lang, "habit_custom_locked"),
+        callback_data="preset_custom" if is_premium else "premium_required",
+    )
+    keyboard.append([custom_btn])
+    keyboard.append([InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="back_main")])
+
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
 def back_only(lang: str, callback_data: str = "back_main") -> InlineKeyboardMarkup:
@@ -21,47 +64,6 @@ def habits_list(habits: list[tuple[int, str]], lang: str) -> InlineKeyboardMarku
         [InlineKeyboardButton(text=title, callback_data=f"habit_{hid}")]
         for hid, title in habits
     ]
-    rows.append([InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="back_main")])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
-
-
-def presets_grid(presets: list[str], page: int, lang: str, is_premium: bool) -> InlineKeyboardMarkup:
-    start = page * PAGE_SIZE
-    chunk = presets[start : start + PAGE_SIZE]
-    left_column = chunk[:3]
-    right_column = chunk[3:6]
-    rows = []
-    for i in range(3):
-        row = []
-        if i < len(left_column):
-            idx = start + i
-            title = left_column[i]
-            if is_premium or idx < 3:
-                row.append(InlineKeyboardButton(text=title, callback_data=f"preset_{idx}"))
-            else:
-                row.append(InlineKeyboardButton(text=f"{title} 🔒", callback_data="premium_required"))
-        if i < len(right_column):
-            idx = start + i + 3
-            title = right_column[i]
-            if is_premium or idx < 3:
-                row.append(InlineKeyboardButton(text=title, callback_data=f"preset_{idx}"))
-            else:
-                row.append(InlineKeyboardButton(text=f"{title} 🔒", callback_data="premium_required"))
-        if row:
-            rows.append(row)
-    nav = []
-    if page > 0:
-        nav.append(InlineKeyboardButton(text=t(lang, "habit_preset_prev"), callback_data="preset_prev"))
-    if start + PAGE_SIZE < len(presets):
-        nav.append(InlineKeyboardButton(text=t(lang, "habit_preset_next"), callback_data="preset_next"))
-    if nav:
-        rows.append(nav)
-    if is_premium:
-        rows.append([InlineKeyboardButton(text=t(lang, "habit_custom"), callback_data="preset_custom")])
-    else:
-        rows.append([
-            InlineKeyboardButton(text=t(lang, "habit_custom_locked"), callback_data="premium_required")
-        ])
     rows.append([InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="back_main")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 

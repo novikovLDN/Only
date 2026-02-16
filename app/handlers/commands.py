@@ -9,7 +9,7 @@ from aiogram.types import Message
 
 from app.db import get_session_maker
 from app.keyboards import back_only, main_menu
-from app.keyboards.habits import habits_list, presets_grid
+from app.keyboards.habits import build_presets_keyboard, habits_list
 from app.keyboards.premium import premium_menu
 from app.keyboards.profile import profile_keyboard
 from app.keyboards.settings import settings_menu
@@ -42,7 +42,7 @@ async def cmd_add(message: Message, state: FSMContext) -> None:
 
     await message.answer(
         t(lang, "habit_presets"),
-        reply_markup=presets_grid(habit_service.PRESETS, 0, lang, is_premium),
+        reply_markup=build_presets_keyboard(lang, is_premium, 0),
     )
 
 

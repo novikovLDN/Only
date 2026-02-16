@@ -9,7 +9,8 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from app.db import get_session_maker
 from app.keyboards import back_only, main_menu
-from app.keyboards.habits import presets_grid, weekdays_keyboard, time_keyboard, confirm_keyboard
+from app.core.habit_presets import get_preset_title
+from app.keyboards.habits import build_presets_keyboard, weekdays_keyboard, time_keyboard, confirm_keyboard
 from app.services import habit_service, user_service
 from app.texts import t
 
@@ -63,32 +64,28 @@ async def cb_add_habit(cb: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(CreateHabitStates.preset)
     await state.update_data(page=0, selected_preset=None, weekdays=[], times=[], lang=lang, is_premium=is_premium)
 
-    kb = presets_grid(habit_service.PRESETS, 0, lang, is_premium)
+    kb = build_presets_keyboard(lang, is_premium, 0)
     await cb.message.edit_text(t(lang, "habit_presets"), reply_markup=kb)
 
 
-@router.callback_query(CreateHabitStates.preset, lambda c: c.data and (c.data.startswith("preset_") or c.data in ("preset_prev", "preset_next")))
+@router.callback_query(CreateHabitStates.preset, lambda c: c.data and (c.data.startswith("preset_page_") or c.data.startswith("select_preset_") or c.data == "preset_custom"))
 async def cb_preset_select(cb: CallbackQuery, state: FSMContext) -> None:
     await cb.answer()
     data = await state.get_data()
-    lang = data.get("lang", "en")
+    lang = data.get("lang", "ru")
     is_premium = data.get("is_premium", False)
     page = data.get("page", 0)
     tid = cb.from_user.id if cb.from_user else 0
 
-    if cb.data == "preset_prev":
-        page = max(0, page - 1)
+    if cb.data and cb.data.startswith("preset_page_"):
+        try:
+            page = max(0, int(cb.data.split("_")[-1]))
+        except (ValueError, IndexError):
+            page = 0
         await state.update_data(page=page)
-        kb = presets_grid(habit_service.PRESETS, page, lang, is_premium)
+        kb = build_presets_keyboard(lang, is_premium, page)
         await cb.message.edit_text(t(lang, "habit_presets"), reply_markup=kb)
         return
-    if cb.data == "preset_next":
-        page += 1
-        await state.update_data(page=page)
-        kb = presets_grid(habit_service.PRESETS, page, lang, is_premium)
-        await cb.message.edit_text(t(lang, "habit_presets"), reply_markup=kb)
-        return
-    tid = cb.from_user.id if cb.from_user else 0
 
     if cb.data == "preset_custom":
         if not is_premium:
@@ -99,26 +96,26 @@ async def cb_preset_select(cb: CallbackQuery, state: FSMContext) -> None:
         await cb.message.edit_text(t(lang, "habit_name_prompt"), reply_markup=back_only(lang))
         return
 
-    if not cb.data or not cb.data.startswith("preset_"):
-        return
-    try:
-        idx = int(cb.data.split("_")[1])
-    except (ValueError, IndexError):
-        return
-    if not is_premium and idx >= habit_service.FREE_PRESET_LIMIT:
-        await cb.answer(t(lang, "premium_locked_alert"), show_alert=True)
-        return
-    presets = habit_service.PRESETS
-    title = presets[idx] if 0 <= idx < len(presets) else ""
-    await state.update_data(selected_preset=title, habit_title=title, custom=False)
-    await state.set_state(CreateHabitStates.days)
+    if cb.data and cb.data.startswith("select_preset_"):
+        try:
+            preset_id = int(cb.data.split("_")[-1])
+        except (ValueError, IndexError):
+            return
+        if not is_premium and preset_id > 3:
+            await cb.answer(t(lang, "premium_locked_alert"), show_alert=True)
+            return
+        title = get_preset_title(preset_id, lang)
+        if not title:
+            return
+        await state.update_data(selected_preset=title, habit_title=title, custom=False)
+        await state.set_state(CreateHabitStates.days)
 
-    sm = get_session_maker()
-    async with sm() as session:
-        user = await user_service.get_by_telegram_id(session, tid)
-        lang = user.language_code if user else "en"
+        sm = get_session_maker()
+        async with sm() as session:
+            user = await user_service.get_by_telegram_id(session, tid)
+            lang = user.language_code if user else "ru"
 
-    await cb.message.edit_text(t(lang, "habit_select_days"), reply_markup=weekdays_keyboard([], lang))
+        await cb.message.edit_text(t(lang, "habit_select_days"), reply_markup=weekdays_keyboard([], lang))
 
 
 @router.callback_query(CreateHabitStates.days, lambda c: c.data and (c.data.startswith("wd_") or c.data == "days_ok"))
