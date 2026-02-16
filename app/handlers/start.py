@@ -4,6 +4,7 @@ import logging
 
 from aiogram import Router
 from aiogram.filters import CommandStart
+from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from app.db import get_session_maker
@@ -21,7 +22,8 @@ def _lang_from_callback(data: str) -> str:
 
 
 @router.message(CommandStart())
-async def cmd_start(message: Message) -> None:
+async def cmd_start(message: Message, state: FSMContext) -> None:
+    await state.clear()
     logger.info("START handler triggered tid=%s", message.from_user.id if message.from_user else 0)
     tid = message.from_user.id if message.from_user else 0
     uname = message.from_user.username if message.from_user else None

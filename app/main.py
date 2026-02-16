@@ -8,6 +8,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import BotCommand
 
 from app.config import settings
 from app.database import close_db, init_db
@@ -15,6 +16,7 @@ from app.logger import setup_logging
 from app.scheduler import setup_scheduler, shutdown_scheduler
 
 from app.handlers import (
+    commands,
     habits_create,
     habits_edit,
     loyalty,
@@ -36,6 +38,7 @@ def _create_bot_and_dp() -> tuple[Bot, Dispatcher]:
     )
     dp = Dispatcher(storage=MemoryStorage())
 
+    dp.include_router(commands.router)
     dp.include_router(habits_create.router)
     dp.include_router(start.router)
     dp.include_router(main_menu.router)
@@ -62,6 +65,16 @@ async def main() -> None:
     await init_db()
     bot, dp = _create_bot_and_dp()
     setup_scheduler(bot)
+
+    await bot.set_my_commands([
+        BotCommand(command="start", description="🚀 Перезапуск"),
+        BotCommand(command="add", description="➕ Добавить привычку"),
+        BotCommand(command="edit", description="✏️ Редактировать привычки"),
+        BotCommand(command="profile", description="👤 Мой профиль"),
+        BotCommand(command="premium", description="💎 Купить Premium"),
+        BotCommand(command="referral", description="🌎 Программа лояльности"),
+        BotCommand(command="settings", description="⚙️ Настройки"),
+    ])
 
     logging.getLogger("aiogram").setLevel(logging.DEBUG)
     await bot.delete_webhook(drop_pending_updates=True)
