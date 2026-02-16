@@ -1,15 +1,14 @@
-"""Profile screen."""
+"""Profile screen — single message with photo."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from aiogram import Router
 from aiogram.types import CallbackQuery
 
 from app.db import get_session_maker
-from app.keyboards import back_only, main_menu
+from app.keyboards import back_only
 from app.keyboards.profile import profile_keyboard
 from app.services import habit_log_service, referral_service, user_service
-from app.services.user_service import is_premium
 from app.texts import t
 
 router = Router(name="profile")
@@ -31,7 +30,6 @@ async def cb_profile(cb: CallbackQuery) -> None:
         done = await habit_log_service.count_done(session, user.id)
         skipped = await habit_log_service.count_skipped(session, user.id)
 
-    from datetime import timezone
     premium_str = t(lang, "profile_no_premium")
     if user.premium_until:
         pu = user.premium_until
@@ -42,8 +40,8 @@ async def cb_profile(cb: CallbackQuery) -> None:
                 date=user.premium_until.strftime("%Y-%m-%d")
             )
 
-    premium = is_premium(user)
-    text = (
+    is_premium = user_service.is_premium(user)
+    caption = (
         t(lang, "profile_title").format(name=fname or "there")
         + f"\n\n{premium_str}\n"
         + t(lang, "profile_referrals").format(count=ref_count)
@@ -52,8 +50,21 @@ async def cb_profile(cb: CallbackQuery) -> None:
         + "\n"
         + t(lang, "profile_skipped").format(count=skipped)
     )
+    kb = profile_keyboard(lang, is_premium)
 
-    await cb.message.edit_text(text, reply_markup=profile_keyboard(lang, premium))
+    try:
+        photos = await cb.bot.get_user_profile_photos(tid, limit=1)
+        if photos.total_count > 0:
+            file_id = photos.photos[0][-1].file_id
+            await cb.message.answer_photo(
+                photo=file_id,
+                caption=caption,
+                reply_markup=kb,
+            )
+        else:
+            await cb.message.answer(caption, reply_markup=kb)
+    except Exception:
+        await cb.message.answer(caption, reply_markup=kb)
 
 
 @router.callback_query(lambda c: c.data == "profile_missed")

@@ -93,7 +93,7 @@ async def cmd_profile(message: Message, state: FSMContext) -> None:
             )
 
     is_premium = user_service.is_premium(user)
-    text = (
+    caption = (
         t(lang, "profile_title").format(name=fname or "there")
         + f"\n\n{premium_str}\n"
         + t(lang, "profile_referrals").format(count=ref_count)
@@ -102,8 +102,21 @@ async def cmd_profile(message: Message, state: FSMContext) -> None:
         + "\n"
         + t(lang, "profile_skipped").format(count=skipped)
     )
+    kb = profile_keyboard(lang, is_premium)
 
-    await message.answer(text, reply_markup=profile_keyboard(lang, is_premium))
+    try:
+        photos = await message.bot.get_user_profile_photos(tid, limit=1)
+        if photos.total_count > 0:
+            file_id = photos.photos[0][-1].file_id
+            await message.answer_photo(
+                photo=file_id,
+                caption=caption,
+                reply_markup=kb,
+            )
+        else:
+            await message.answer(caption, reply_markup=kb)
+    except Exception:
+        await message.answer(caption, reply_markup=kb)
 
 
 @router.message(Command("premium"))
