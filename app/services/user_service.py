@@ -45,7 +45,7 @@ async def get_or_create(
         timezone="UTC",
     )
     session.add(user)
-    await session.flush()
+    await session.commit()
     await session.refresh(user)
     return user, True
 
