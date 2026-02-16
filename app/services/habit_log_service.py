@@ -70,3 +70,30 @@ async def count_skipped(session: AsyncSession, user_id: int) -> int:
         )
     )
     return result.scalar() or 0
+
+
+async def get_max_streak(session: AsyncSession, user_id: int) -> int:
+    """Max consecutive days with at least one habit done."""
+    result = await session.execute(
+        select(HabitLog.log_date)
+        .where(HabitLog.user_id == user_id, HabitLog.status == "done")
+        .order_by(HabitLog.log_date.desc())
+    )
+    seen: set[date] = set()
+    dates = []
+    for r in result.all():
+        d = r[0]
+        if d not in seen:
+            seen.add(d)
+            dates.append(d)
+    if not dates:
+        return 0
+    streak = 0
+    prev = None
+    for d in dates:
+        if prev is None or (prev - d).days == 1:
+            streak += 1
+            prev = d
+        else:
+            break
+    return streak

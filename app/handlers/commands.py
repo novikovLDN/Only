@@ -1,13 +1,12 @@
 """Telegram commands — full navigation. Always clear FSM, always message.answer()."""
 
-from datetime import datetime, timezone
-
 from aiogram import Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
 from app.db import get_session_maker
+from app.handlers.profile import _build_profile_caption
 from app.keyboards import back_only, main_menu
 from app.keyboards.habits import build_presets_keyboard, habits_list
 from app.keyboards.premium import premium_menu
@@ -82,25 +81,9 @@ async def cmd_profile(message: Message, state: FSMContext) -> None:
         done = await habit_log_service.count_done(session, user.id)
         skipped = await habit_log_service.count_skipped(session, user.id)
 
-    premium_str = t(lang, "profile_no_premium")
-    if user.premium_until:
-        pu = user.premium_until
-        if pu.tzinfo is None:
-            pu = pu.replace(tzinfo=timezone.utc)
-        if pu > datetime.now(timezone.utc):
-            premium_str = t(lang, "profile_premium_until").format(
-                date=user.premium_until.strftime("%Y-%m-%d")
-            )
-
     is_premium = user_service.is_premium(user)
-    caption = (
-        t(lang, "profile_title").format(name=fname or "there")
-        + f"\n\n{premium_str}\n"
-        + t(lang, "profile_referrals").format(count=ref_count)
-        + "\n\n"
-        + t(lang, "profile_done").format(count=done)
-        + "\n"
-        + t(lang, "profile_skipped").format(count=skipped)
+    caption = _build_profile_caption(
+        user, lang, ref_count, done, skipped, fname or ""
     )
     kb = profile_keyboard(lang, is_premium)
 
