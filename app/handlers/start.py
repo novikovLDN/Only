@@ -1,5 +1,7 @@
 """Start and onboarding — lang, tz, referral."""
 
+import logging
+
 from aiogram import Router
 from aiogram.filters import CommandStart
 from aiogram.types import CallbackQuery, Message
@@ -8,6 +10,8 @@ from app.db import get_session_maker
 from app.keyboards import lang_select, main_menu, tz_select
 from app.services import referral_service, user_service
 from app.texts import t
+
+logger = logging.getLogger(__name__)
 
 router = Router(name="start")
 
@@ -18,6 +22,7 @@ def _lang_from_callback(data: str) -> str:
 
 @router.message(CommandStart())
 async def cmd_start(message: Message) -> None:
+    logger.info("START handler triggered tid=%s", message.from_user.id if message.from_user else 0)
     tid = message.from_user.id if message.from_user else 0
     uname = message.from_user.username if message.from_user else None
     fname = message.from_user.first_name or ""

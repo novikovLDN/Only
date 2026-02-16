@@ -63,6 +63,9 @@ async def main() -> None:
     bot, dp = _create_bot_and_dp()
     setup_scheduler(bot)
 
+    logging.getLogger("aiogram").setLevel(logging.DEBUG)
+    await bot.delete_webhook(drop_pending_updates=True)
+
     try:
         await dp.start_polling(bot)
     finally:
