@@ -1,10 +1,11 @@
-"""APScheduler — habit reminders every 60s, habit_time + timezone."""
+"""APScheduler — habit reminders every 60s, habit_time + timezone; daily metrics recalc."""
 
 import logging
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import select
 
 from app.database import get_session_maker
@@ -94,6 +95,19 @@ async def run_reminders(bot) -> None:
         logger.exception("Reminders job error: %s", e)
 
 
+async def run_daily_metrics_recalc(bot) -> None:
+    """Daily 00:05 UTC: recalc user_metrics for all users."""
+    try:
+        from app.services import metrics_service
+        sm = get_session_maker()
+        async with sm() as session:
+            await metrics_service.recalculate_all_metrics(session, bot)
+            await session.commit()
+        logger.info("Daily metrics recalc completed")
+    except Exception as e:
+        logger.exception("Daily metrics recalc failed: %s", e)
+
+
 def setup_scheduler(bot) -> None:
     sched = get_scheduler()
     sched.add_job(
@@ -102,6 +116,13 @@ def setup_scheduler(bot) -> None:
         minutes=1,
         args=(bot,),
         id="habit_reminders",
+        replace_existing=True,
+    )
+    sched.add_job(
+        run_daily_metrics_recalc,
+        trigger=CronTrigger(hour=0, minute=5),
+        args=(bot,),
+        id="daily_metrics_recalc",
         replace_existing=True,
     )
     sched.start()

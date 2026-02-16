@@ -11,7 +11,7 @@ from app.keyboards.habits import (
     edit_weekdays_keyboard,
     habits_list,
 )
-from app.services import habit_service, user_service
+from app.services import habit_service, metrics_service, user_service
 from app.texts import t
 
 router = Router(name="habits_edit")
@@ -105,13 +105,18 @@ async def cb_edit_wd_toggle(cb: CallbackQuery) -> None:
         active_days = sorted({w for w, _ in times_data})
         active_times = [t for _, t in times_data]
 
+        goal_increased = False
         if day in active_days:
             active_days = [d for d in active_days if d != day]
         else:
             active_days = sorted(active_days + [day])
+            goal_increased = True
 
         if active_days and active_times:
             await habit_service.update_habit_times(session, habit_id, active_days, active_times)
+            await metrics_service.mark_habit_modified(session, user.id, user)
+            if goal_increased:
+                await metrics_service.mark_habit_goal_increased(session, user.id)
             await session.commit()
 
     await cb.message.edit_text(
@@ -187,14 +192,19 @@ async def cb_edit_tm_toggle(cb: CallbackQuery) -> None:
         active_days = sorted({w for w, _ in times_data})
         active_times = list({t for _, t in times_data})
 
+        goal_increased = False
         if t_slot in active_times:
             active_times = [x for x in active_times if x != t_slot]
         else:
             active_times = active_times + [t_slot]
+            goal_increased = True
         active_times = sorted(active_times)
 
         if active_days and active_times:
             await habit_service.update_habit_times(session, habit_id, active_days, active_times)
+            await metrics_service.mark_habit_modified(session, user.id, user)
+            if goal_increased:
+                await metrics_service.mark_habit_goal_increased(session, user.id)
             await session.commit()
 
     await cb.message.edit_text(

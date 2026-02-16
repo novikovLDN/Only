@@ -1,14 +1,14 @@
 """Achievement check and unlock logic."""
 
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 from aiogram import Bot
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Achievement, User, UserAchievement
-from app.services import habit_log_service, habit_service, referral_service
+from app.services import metrics_service, referral_service
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ CONDITIONS = {
     "FIRST_MARK": lambda m: m["completed_total"] >= 1,
     "ACCELERATION": lambda m: m["completed_total"] >= 5,
     "FIRST_10": lambda m: m["completed_total"] >= 10,
-    "WEEK_FOCUS": lambda m: m.get("all_habits_one_day", False),
+    "WEEK_FOCUS": lambda m: m.get("all_habits_one_day", False) and m.get("completed_one_day", 0) > 0,
     "PERFECT_MONDAY": lambda m: m.get("all_habits_monday", False),
     "NO_SKIP_3": lambda m: m.get("no_skips_days", 0) >= 3,
     "STREAK_7": lambda m: m["streak_days"] >= 7,
@@ -35,9 +35,9 @@ CONDITIONS = {
     "PHOENIX": lambda m: m.get("returned_after_skip_days", 0) >= 5,
     "PERFECT_DAY": lambda m: m.get("perfect_day_count", 0) >= 1,
     "PERFECT_7": lambda m: m.get("perfect_streak", 0) >= 7,
-    "PERFECT_WEEK": lambda m: m.get("perfect_streak", 0) >= 7,
-    "PERFECT_14": lambda m: m.get("perfect_day_count", 0) >= 14,
-    "PERFECT_MONTH": lambda m: m.get("perfect_day_count", 0) >= 30,
+    "PERFECT_WEEK": lambda m: m.get("all_habits_7_days", False),
+    "PERFECT_14": lambda m: m.get("perfect_streak", 0) >= 14,
+    "PERFECT_MONTH": lambda m: m.get("perfect_streak", 0) >= 30,
     "ABSOLUTE": lambda m: m.get("perfect_weeks_in_month", 0) >= 3,
     "MAXIMALIST": lambda m: m.get("perfect_streak", 0) >= 10,
     "MARK_50": lambda m: m["completed_total"] >= 50,
@@ -67,38 +67,41 @@ CONDITIONS = {
 
 
 async def _get_metrics(session: AsyncSession, user_id: int, user: User | None) -> dict:
-    habits_count = await habit_service.count_user_habits(session, user_id)
-    completed = await habit_log_service.count_done(session, user_id)
-    streak = await habit_log_service.get_max_streak(session, user_id)
+    """Get metrics from user_metrics (after recalc) or fallback minimal dict."""
+    try:
+        await metrics_service.recalculate_user_metrics(session, user_id, user)
+        m = await metrics_service.get_or_create_metrics(session, user_id)
+        await session.refresh(m)
+        return metrics_service.metrics_to_dict(m, user)
+    except Exception as e:
+        logger.warning("Metrics recalc failed, using fallback: %s", e)
     referrals = await referral_service.count_referrals(session, user_id)
-
     sub_months = 0
     if user and user.premium_until:
         pu = user.premium_until
         if pu.tzinfo is None:
             pu = pu.replace(tzinfo=timezone.utc)
-        now = datetime.now(timezone.utc)
-        if pu > now:
-            sub_months = max(1, (pu - now).days // 30)
-
+        if pu > datetime.now(timezone.utc):
+            sub_months = max(1, (pu - datetime.now(timezone.utc)).days // 30)
     return {
-        "habits_created": habits_count,
-        "completed_total": completed,
-        "streak_days": streak,
+        "habits_created": 0,
+        "completed_total": 0,
+        "streak_days": 0,
         "referrals_count": referrals,
         "subscription_months": sub_months,
         "profile_completed": bool(user and user.timezone and user.timezone != "UTC"),
-        "reminders_configured": habits_count >= 1,
+        "reminders_configured": False,
         "all_habits_one_day": False,
         "all_habits_monday": False,
         "no_skips_days": 0,
         "returned_after_skip_days": 0,
         "perfect_day_count": 0,
         "perfect_streak": 0,
+        "all_habits_7_days": False,
         "perfect_weeks_in_month": 0,
         "completed_one_day": 0,
-        "completed_7_days": completed,
-        "completed_month": completed,
+        "completed_7_days": 0,
+        "completed_month": 0,
         "habit_changed_streak_ok": False,
         "habit_goal_increased": False,
         "five_habits_14_days": False,
@@ -141,6 +144,10 @@ async def check_achievements(
                 session.add(ua)
                 await session.flush()
                 newly_unlocked.append(ach)
+                if code == "FLEXIBLE":
+                    await metrics_service.reset_flexibility_flags(session, user_id)
+                elif code == "GROWTH":
+                    await metrics_service.reset_growth_flag(session, user_id)
                 if bot and telegram_id:
                     lang = (user.language_code or "ru")[:2].lower()
                     lang = "en" if lang == "en" else "ru"
