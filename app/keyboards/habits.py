@@ -90,3 +90,29 @@ def edit_habit_menu(habit_id: int, lang: str) -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="edit_habits")],
         ]
     )
+
+
+def edit_weekdays_keyboard(habit_id: int, selected: list[int], lang: str) -> InlineKeyboardMarkup:
+    row1 = []
+    for i in range(7):
+        label = WEEKDAYS[i] + (" ✅" if i in selected else "")
+        row1.append(InlineKeyboardButton(text=label, callback_data=f"edit_wd:{habit_id}:{i}"))
+    rows = [row1]
+    rows.append([InlineKeyboardButton(text=t(lang, "habit_confirm_preset"), callback_data=f"edit_days_ok:{habit_id}")])
+    rows.append([InlineKeyboardButton(text=t(lang, "btn_back"), callback_data=f"habit_{habit_id}")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def edit_time_keyboard_for_habit(habit_id: int, selected: list[str], lang: str) -> InlineKeyboardMarkup:
+    hours = [f"{h:02d}:00" for h in range(24)]
+    rows = []
+    for i in range(0, 24, 6):
+        row = []
+        for h in range(i, min(i + 6, 24)):
+            t_slot = f"{h:02d}:00"
+            label = t_slot + (" ✅" if t_slot in selected else "")
+            row.append(InlineKeyboardButton(text=label, callback_data=f"edit_tm:{habit_id}:{t_slot}"))
+        rows.append(row)
+    rows.append([InlineKeyboardButton(text=t(lang, "habit_confirm_preset"), callback_data=f"edit_time_ok:{habit_id}")])
+    rows.append([InlineKeyboardButton(text=t(lang, "btn_back"), callback_data=f"habit_{habit_id}")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)

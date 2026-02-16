@@ -1,19 +1,23 @@
 """Edit habits — grid, change days/time, delete."""
 
 from aiogram import Router, F
-from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
 from app.db import get_session_maker
 from app.keyboards import back_only, main_menu
-from app.keyboards.habits import edit_habit_menu, habits_list, weekdays_keyboard, time_keyboard
+from app.keyboards.habits import (
+    edit_habit_menu,
+    edit_time_keyboard_for_habit,
+    edit_weekdays_keyboard,
+    habits_list,
+)
 from app.services import habit_service, user_service
 from app.texts import t
 
 router = Router(name="habits_edit")
 
 
-@router.callback_query(lambda c: c.data == "edit_habits")
+@router.callback_query(F.data == "edit_habits")
 async def cb_edit_habits(cb: CallbackQuery) -> None:
     await cb.answer()
     tid = cb.from_user.id if cb.from_user else 0
@@ -56,7 +60,172 @@ async def cb_habit_detail(cb: CallbackQuery) -> None:
     )
 
 
-@router.callback_query(lambda c: c.data and c.data.startswith("habit_delete:"))
+@router.callback_query(F.data.startswith("edit_days:"))
+async def cb_edit_days(cb: CallbackQuery) -> None:
+    await cb.answer()
+    habit_id = int(cb.data.split(":")[1])
+    tid = cb.from_user.id if cb.from_user else 0
+
+    sm = get_session_maker()
+    async with sm() as session:
+        user = await user_service.get_by_telegram_id(session, tid)
+        if not user:
+            return
+        habit = await habit_service.get_by_id(session, habit_id)
+        if not habit or habit.user_id != user.id:
+            return
+        lang = user.language_code
+        times_data = await habit_service.get_habit_times(session, habit_id)
+        active_days = sorted({w for w, _ in times_data})
+
+    await cb.message.edit_text(
+        t(lang, "habit_select_days"),
+        reply_markup=edit_weekdays_keyboard(habit_id, active_days, lang),
+    )
+
+
+@router.callback_query(F.data.startswith("edit_wd:"))
+async def cb_edit_wd_toggle(cb: CallbackQuery) -> None:
+    await cb.answer()
+    parts = cb.data.split(":")
+    habit_id = int(parts[1])
+    day = int(parts[2])
+    tid = cb.from_user.id if cb.from_user else 0
+
+    sm = get_session_maker()
+    async with sm() as session:
+        user = await user_service.get_by_telegram_id(session, tid)
+        if not user:
+            return
+        habit = await habit_service.get_by_id(session, habit_id)
+        if not habit or habit.user_id != user.id:
+            return
+        lang = user.language_code
+        times_data = await habit_service.get_habit_times(session, habit_id)
+        active_days = sorted({w for w, _ in times_data})
+        active_times = [t for _, t in times_data]
+
+        if day in active_days:
+            active_days = [d for d in active_days if d != day]
+        else:
+            active_days = sorted(active_days + [day])
+
+        if active_days and active_times:
+            await habit_service.update_habit_times(session, habit_id, active_days, active_times)
+            await session.commit()
+
+    await cb.message.edit_text(
+        t(lang, "habit_select_days"),
+        reply_markup=edit_weekdays_keyboard(habit_id, active_days, lang),
+    )
+
+
+@router.callback_query(F.data.startswith("edit_days_ok:"))
+async def cb_edit_days_ok(cb: CallbackQuery) -> None:
+    await cb.answer()
+    habit_id = int(cb.data.split(":")[1])
+    tid = cb.from_user.id if cb.from_user else 0
+
+    sm = get_session_maker()
+    async with sm() as session:
+        user = await user_service.get_by_telegram_id(session, tid)
+        if not user:
+            return
+        habit = await habit_service.get_by_id(session, habit_id)
+        if not habit or habit.user_id != user.id:
+            return
+        lang = user.language_code
+
+    await cb.message.edit_text(
+        f"{habit.title}\n\nИзменить дни / время / удалить:",
+        reply_markup=edit_habit_menu(habit_id, lang),
+    )
+
+
+@router.callback_query(F.data.startswith("edit_time:"))
+async def cb_edit_time(cb: CallbackQuery) -> None:
+    await cb.answer()
+    habit_id = int(cb.data.split(":")[1])
+    tid = cb.from_user.id if cb.from_user else 0
+
+    sm = get_session_maker()
+    async with sm() as session:
+        user = await user_service.get_by_telegram_id(session, tid)
+        if not user:
+            return
+        habit = await habit_service.get_by_id(session, habit_id)
+        if not habit or habit.user_id != user.id:
+            return
+        lang = user.language_code
+        times_data = await habit_service.get_habit_times(session, habit_id)
+        active_times = sorted({t for _, t in times_data})
+
+    await cb.message.edit_text(
+        t(lang, "habit_select_time"),
+        reply_markup=edit_time_keyboard_for_habit(habit_id, active_times, lang),
+    )
+
+
+@router.callback_query(F.data.startswith("edit_tm:"))
+async def cb_edit_tm_toggle(cb: CallbackQuery) -> None:
+    await cb.answer()
+    parts = cb.data.split(":")
+    habit_id = int(parts[1])
+    t_slot = parts[2]
+    tid = cb.from_user.id if cb.from_user else 0
+
+    sm = get_session_maker()
+    async with sm() as session:
+        user = await user_service.get_by_telegram_id(session, tid)
+        if not user:
+            return
+        habit = await habit_service.get_by_id(session, habit_id)
+        if not habit or habit.user_id != user.id:
+            return
+        lang = user.language_code
+        times_data = await habit_service.get_habit_times(session, habit_id)
+        active_days = sorted({w for w, _ in times_data})
+        active_times = list({t for _, t in times_data})
+
+        if t_slot in active_times:
+            active_times = [x for x in active_times if x != t_slot]
+        else:
+            active_times = active_times + [t_slot]
+        active_times = sorted(active_times)
+
+        if active_days and active_times:
+            await habit_service.update_habit_times(session, habit_id, active_days, active_times)
+            await session.commit()
+
+    await cb.message.edit_text(
+        t(lang, "habit_select_time"),
+        reply_markup=edit_time_keyboard_for_habit(habit_id, active_times, lang),
+    )
+
+
+@router.callback_query(F.data.startswith("edit_time_ok:"))
+async def cb_edit_time_ok(cb: CallbackQuery) -> None:
+    await cb.answer()
+    habit_id = int(cb.data.split(":")[1])
+    tid = cb.from_user.id if cb.from_user else 0
+
+    sm = get_session_maker()
+    async with sm() as session:
+        user = await user_service.get_by_telegram_id(session, tid)
+        if not user:
+            return
+        habit = await habit_service.get_by_id(session, habit_id)
+        if not habit or habit.user_id != user.id:
+            return
+        lang = user.language_code
+
+    await cb.message.edit_text(
+        f"{habit.title}\n\nИзменить дни / время / удалить:",
+        reply_markup=edit_habit_menu(habit_id, lang),
+    )
+
+
+@router.callback_query(F.data.startswith("habit_delete:"))
 async def cb_habit_delete(cb: CallbackQuery) -> None:
     await cb.answer()
     habit_id = int(cb.data.split(":")[1])
@@ -74,4 +243,7 @@ async def cb_habit_delete(cb: CallbackQuery) -> None:
         await session.commit()
         lang = user.language_code
 
-    await cb.message.edit_text(t(lang, "habit_created"), reply_markup=main_menu(lang))
+    await cb.message.edit_text(
+        "✅ Привычка удалена",
+        reply_markup=main_menu(lang, user_service.is_premium(user)),
+    )
