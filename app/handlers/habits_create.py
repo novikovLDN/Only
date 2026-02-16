@@ -237,7 +237,11 @@ async def cb_confirm_ok(cb: CallbackQuery, state: FSMContext) -> None:
         lang = user.language_code
 
     await state.clear()
-    await cb.message.edit_text(t(lang, "habit_created"), reply_markup=main_menu(lang))
+    is_premium = user_service.is_premium(user)
+    await cb.message.edit_text(
+        t(lang, "habit_created"),
+        reply_markup=main_menu(lang, is_premium),
+    )
 
 
 @router.message(CreateHabitStates.custom_title, F.text)

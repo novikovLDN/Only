@@ -6,6 +6,7 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
 from app.db import get_session_maker
+from app.keyboards import main_menu
 from app.keyboards.reminder import reminder_buttons, skip_reasons
 from app.services import habit_log_service, reminders as rem_svc
 from app.services import user_service
@@ -35,8 +36,10 @@ async def cb_habit_done(cb: CallbackQuery) -> None:
         await rem_svc.record_phrase_usage(session, user.id, habit_id, idx)
         await session.commit()
 
-    await cb.message.edit_text("🎉")
-    await cb.message.answer(phrase)
+    await cb.message.edit_text(
+        f"🎉\n\n{phrase}",
+        reply_markup=main_menu(lang, user_service.is_premium(user)),
+    )
 
 
 @router.callback_query(F.data.startswith("habit_skip:"))
