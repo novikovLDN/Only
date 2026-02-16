@@ -11,17 +11,22 @@ async def get_or_create(
     telegram_id: int,
     username: str | None = None,
     first_name: str | None = None,
+    telegram_language_code: str | None = None,
 ) -> tuple[User, bool]:
     result = await session.execute(select(User).where(User.telegram_id == telegram_id))
     user = result.scalar_one_or_none()
     if user:
         return user, False
 
+    lang = (telegram_language_code or "ru")[:2].lower() if telegram_language_code else "ru"
+    if lang not in ("ru", "en"):
+        lang = "ru"
+
     user = User(
         telegram_id=telegram_id,
         username=username,
         first_name=first_name,
-        language_code="ru",
+        language_code=lang,
         timezone="UTC",
     )
     session.add(user)

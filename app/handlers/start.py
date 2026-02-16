@@ -17,10 +17,13 @@ async def cmd_start(message: Message) -> None:
     tid = message.from_user.id if message.from_user else 0
     uname = message.from_user.username if message.from_user else None
     fname = message.from_user.first_name if message.from_user else None
+    tlang = message.from_user.language_code if message.from_user else None
 
     sm = get_session_maker()
     async with sm() as session:
-        user, created = await users.get_or_create(session, tid, uname, fname)
+        user, created = await users.get_or_create(
+            session, tid, uname, fname, telegram_language_code=tlang
+        )
         await session.commit()
         lang = user.language_code
         if created or user.language_code not in ("ru", "en"):

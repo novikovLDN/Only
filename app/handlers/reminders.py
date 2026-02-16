@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from aiogram import Router
+from aiogram import Router, F
 from aiogram.types import CallbackQuery
 from sqlalchemy import select
 
@@ -15,10 +15,10 @@ from app.texts import t
 router = Router(name="reminders")
 
 
-@router.callback_query(lambda c: c.data and c.data.startswith("done_"))
-async def cb_done(cb: CallbackQuery) -> None:
+@router.callback_query(F.data.startswith("habit_done:"))
+async def cb_habit_done(cb: CallbackQuery) -> None:
     await cb.answer()
-    habit_id = int(cb.data.split("_")[1])
+    habit_id = int(cb.data.split(":")[1])
     tid = cb.from_user.id if cb.from_user else 0
 
     sm = get_session_maker()
@@ -36,10 +36,10 @@ async def cb_done(cb: CallbackQuery) -> None:
     await cb.message.edit_text("🎉", reply_markup=main_menu(lang))
 
 
-@router.callback_query(lambda c: c.data and c.data.startswith("skip_") and not (c.data or "").startswith("skip_reason_") and not (c.data or "").startswith("skip_back_"))
-async def cb_skip(cb: CallbackQuery) -> None:
+@router.callback_query(F.data.startswith("habit_skip:"))
+async def cb_habit_skip(cb: CallbackQuery) -> None:
     await cb.answer()
-    habit_id = int(cb.data.split("_")[1])
+    habit_id = int(cb.data.split(":")[1])
     tid = cb.from_user.id if cb.from_user else 0
 
     sm = get_session_maker()
@@ -53,15 +53,15 @@ async def cb_skip(cb: CallbackQuery) -> None:
     await cb.message.edit_text(t(lang, "skip_why"), reply_markup=skip_reasons(lang, habit_id))
 
 
-@router.callback_query(lambda c: c.data and c.data.startswith("skip_reason_"))
+@router.callback_query(F.data.startswith("skip_reason:"))
 async def cb_skip_reason(cb: CallbackQuery) -> None:
     await cb.answer()
-    parts = cb.data.split("_")
-    habit_id = int(parts[2])
-    reason = parts[3] if len(parts) > 3 else "—"
+    parts = cb.data.split(":")
+    habit_id = int(parts[1])
+    reason = parts[2] if len(parts) > 2 else "no"
     tid = cb.from_user.id if cb.from_user else 0
 
-    reason_map = {"tired": "😴 Tired", "sick": "🤒 Sick", "no_want": "🙅 Don't want"}
+    reason_map = {"tired": "😴 Tired", "sick": "🤒 Sick", "no": "🙅 Don't want"}
     skip_reason = reason_map.get(reason, reason)
 
     sm = get_session_maker()
@@ -79,8 +79,8 @@ async def cb_skip_reason(cb: CallbackQuery) -> None:
     await cb.message.edit_text(t(lang, "main_title"), reply_markup=main_menu(lang))
 
 
-@router.callback_query(lambda c: c.data and c.data.startswith("skip_back_"))
-async def cb_skip_back(cb: CallbackQuery) -> None:
+@router.callback_query(F.data.startswith("back_to_reminder:"))
+async def cb_back_to_reminder(cb: CallbackQuery) -> None:
     await cb.answer()
     tid = cb.from_user.id if cb.from_user else 0
     sm = get_session_maker()

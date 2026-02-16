@@ -103,7 +103,7 @@ async def habit_time_entered(message: Message, state: FSMContext) -> None:
     await message.answer(t(lang, "habit_created"), reply_markup=main_menu(lang))
 
 
-@router.callback_query(lambda c: c.data and c.data.startswith("habit_") and c.data != "habit_name")
+@router.callback_query(lambda c: c.data and c.data.startswith("habit_") and ":" not in (c.data or ""))
 async def cb_habit_detail(cb: CallbackQuery) -> None:
     await cb.answer()
     habit_id = int(cb.data.split("_")[1])

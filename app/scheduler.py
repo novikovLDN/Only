@@ -9,7 +9,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import select
 
 from app.db import get_session_maker
-from app.keyboards import reminder_buttons
+from app.keyboards.reminder import reminder_buttons
 from app.models import Habit, User
 from app.services import reminders as rem_svc
 
@@ -69,7 +69,7 @@ async def run_reminders(bot) -> None:
                 await bot.send_message(
                     chat_id=user.telegram_id,
                     text=text,
-                    reply_markup=reminder_buttons(lang, habit.id),
+                    reply_markup=reminder_buttons(habit.id, lang),
                 )
             except Exception as e:
                 logger.warning("Reminder send failed user=%s habit=%s: %s", user.telegram_id, habit.id, e)
