@@ -1,6 +1,6 @@
 """Habit service."""
 
-from datetime import time
+from datetime import datetime, time
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,10 +9,13 @@ from app.models import Habit, HabitTime
 
 
 def _parse_time(s: str) -> time:
-    parts = s.split(":")
-    h = int(parts[0]) if parts else 0
-    m = int(parts[1]) if len(parts) > 1 else 0
-    return time(h % 24, m % 60)
+    try:
+        return datetime.strptime(s, "%H:%M").time()
+    except (ValueError, TypeError):
+        parts = str(s).split(":")
+        h = int(parts[0]) if parts else 0
+        m = int(parts[1]) if len(parts) > 1 else 0
+        return time(h % 24, m % 60)
 
 
 PRESETS = [
