@@ -1,15 +1,16 @@
-"""Final schema — production stable. FK consistency, TIME type, indexes.
+"""Clean base schema — single migration. No legacy SQL.
 
 Revision ID: 014
-Revises: 013
+Revises: None (base migration)
 Create Date: 2025-01-31
 
 - All user FKs: BIGINT
 - habit_times: TIME type, BIGINT habit_id, weekday SMALLINT
-- habit_logs: log_date, created_at, index
+- habit_logs: log_date, created_at, indexes
 - payments: YooKassa structure (tariff, provider, status)
 - referrals: UNIQUE referral_user_id, created_at
 - motivation_usage: habit_id for tracking
+- Scheduler indexes: idx_habit_times_lookup, idx_habit_logs_habit_id
 """
 
 from typing import Sequence, Union
@@ -17,7 +18,7 @@ from typing import Sequence, Union
 from alembic import op
 
 revision: str = "014"
-down_revision: Union[str, None] = "013"
+down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -112,6 +113,9 @@ def upgrade() -> None:
             used_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         )
     """)
+
+    op.execute("CREATE INDEX idx_habit_times_lookup ON habit_times(weekday, time)")
+    op.execute("CREATE INDEX idx_habit_logs_habit_id ON habit_logs(habit_id)")
 
 
 def downgrade() -> None:
