@@ -79,13 +79,19 @@ async def successful_payment(message: Message) -> None:
         lang = user.language_code
         was_premium = user_service.is_premium(user)
         from app.services.payment_service import record_payment
+        sp = message.successful_payment
+        amount = (sp.total_amount or 0) if sp else 0
+        ext_id = (sp.provider_payment_charge_id or "") if sp else ""
+        tariff = f"{months}m"
         await record_payment(
             session,
             user.id,
-            (message.successful_payment or {}).total_amount or 0,
-            provider_charge_id=(message.successful_payment or {}).provider_payment_charge_id,
+            amount,
+            tariff=tariff,
+            provider="telegram",
+            external_payment_id=ext_id or None,
         )
         await session.commit()
 
     text = t(lang, "premium_extended") if was_premium else t(lang, "premium_success")
-    await message.answer(text, reply_markup=main_menu(lang))
+    await message.answer(text, reply_markup=main_menu(lang, user_service.is_premium(user)))

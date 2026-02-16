@@ -1,9 +1,18 @@
 """Habit service."""
 
+from datetime import time
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Habit, HabitTime
+
+
+def _parse_time(s: str) -> time:
+    parts = s.split(":")
+    h = int(parts[0]) if parts else 0
+    m = int(parts[1]) if len(parts) > 1 else 0
+    return time(h % 24, m % 60)
 
 
 PRESETS = [
@@ -44,7 +53,7 @@ async def create(
     await session.flush()
     for wd in weekdays:
         for t in times:
-            ht = HabitTime(habit_id=habit.id, weekday=wd, time=t)
+            ht = HabitTime(habit_id=habit.id, weekday=wd, time=_parse_time(t))
             session.add(ht)
     await session.flush()
     await session.refresh(habit)
@@ -67,7 +76,7 @@ async def get_habit_times(session: AsyncSession, habit_id: int) -> list[tuple[in
     result = await session.execute(
         select(HabitTime.weekday, HabitTime.time).where(HabitTime.habit_id == habit_id)
     )
-    return result.all()
+    return [(row[0], row[1].strftime("%H:%M") if hasattr(row[1], "strftime") else str(row[1])) for row in result.all()]
 
 
 async def update_habit_times(
@@ -80,7 +89,7 @@ async def update_habit_times(
     await session.execute(delete(HabitTime).where(HabitTime.habit_id == habit_id))
     for wd in weekdays:
         for t in times:
-            ht = HabitTime(habit_id=habit_id, weekday=wd, time=t)
+            ht = HabitTime(habit_id=habit_id, weekday=wd, time=_parse_time(t))
             session.add(ht)
     await session.flush()
 

@@ -18,7 +18,7 @@ async def has_log_today(
         select(HabitLog).where(
             HabitLog.habit_id == habit_id,
             HabitLog.user_id == user_id,
-            HabitLog.date == today,
+            HabitLog.log_date == today,
         )
     )
     return result.scalar_one_or_none() is not None
@@ -30,7 +30,7 @@ async def log_done(
     user_id: int,
     today: date,
 ) -> HabitLog:
-    log = HabitLog(habit_id=habit_id, user_id=user_id, date=today, status="done")
+    log = HabitLog(habit_id=habit_id, user_id=user_id, log_date=today, status="done")
     session.add(log)
     await session.flush()
     await session.refresh(log)
@@ -43,7 +43,7 @@ async def log_skipped(
     user_id: int,
     today: date,
 ) -> HabitLog:
-    log = HabitLog(habit_id=habit_id, user_id=user_id, date=today, status="skipped")
+    log = HabitLog(habit_id=habit_id, user_id=user_id, log_date=today, status="skipped")
     session.add(log)
     await session.flush()
     await session.refresh(log)

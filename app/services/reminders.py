@@ -27,8 +27,10 @@ def get_phrase(lang: str, used_indices: set[int]) -> tuple[str, int]:
     return phrases[idx], idx
 
 
-async def record_phrase_usage(session: AsyncSession, user_id: int, phrase_index: int) -> None:
-    usage = MotivationUsage(user_id=user_id, phrase_index=phrase_index)
+async def record_phrase_usage(
+    session: AsyncSession, user_id: int, habit_id: int, phrase_index: int
+) -> None:
+    usage = MotivationUsage(user_id=user_id, habit_id=habit_id, phrase_index=phrase_index)
     session.add(usage)
     await session.flush()
 
@@ -50,14 +52,14 @@ async def reset_usage_if_needed(session: AsyncSession, user_id: int, lang: str) 
 
 
 async def log_done(session: AsyncSession, habit_id: int, user_id: int, d: date) -> HabitLog:
-    log = HabitLog(habit_id=habit_id, user_id=user_id, date=d, status="done")
+    log = HabitLog(habit_id=habit_id, user_id=user_id, log_date=d, status="done")
     session.add(log)
     await session.flush()
     return log
 
 
-async def log_skipped(session: AsyncSession, habit_id: int, user_id: int, d: date, reason: str) -> HabitLog:
-    log = HabitLog(habit_id=habit_id, user_id=user_id, date=d, status="skipped", skip_reason=reason)
+async def log_skipped(session: AsyncSession, habit_id: int, user_id: int, d: date, reason: str = "") -> HabitLog:
+    log = HabitLog(habit_id=habit_id, user_id=user_id, log_date=d, status="skipped")
     session.add(log)
     await session.flush()
     return log
@@ -68,7 +70,7 @@ async def has_log_today(session: AsyncSession, user_id: int, habit_id: int, d: d
         select(HabitLog).where(
             HabitLog.user_id == user_id,
             HabitLog.habit_id == habit_id,
-            HabitLog.date == d,
+            HabitLog.log_date == d,
         )
     )
     return result.scalar_one_or_none() is not None

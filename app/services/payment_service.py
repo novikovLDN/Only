@@ -1,31 +1,36 @@
-"""Payment service — YooKassa / Telegram payments."""
+"""Payment service — YooKassa / Telegram."""
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Payment, User
+from app.services.referral_service import give_reward_if_pending
 from app.services.user_service import extend_premium
-from app.services.referral_service import get_referral, give_reward_if_pending
-
 
 TARIFF_MONTHS = {1: 1, 3: 3, 6: 6, 12: 12}
+TARIFF_NAMES = {1: "1m", 3: "3m", 6: "6m", 12: "12m"}
 
 
 async def record_payment(
     session: AsyncSession,
     user_id: int,
     amount: int,
-    provider_charge_id: str | None = None,
-    telegram_charge_id: str | None = None,
+    tariff: str = "1m",
+    provider: str = "telegram",
+    external_payment_id: str | None = None,
 ) -> Payment:
     months = 1
-    for m, price in [(1, 199), (3, 499), (6, 799), (12, 1299)]:
-        if amount >= price:
+    for m, name in TARIFF_NAMES.items():
+        if tariff == name:
             months = m
+            break
+
     p = Payment(
         user_id=user_id,
+        tariff=tariff,
         amount=amount,
-        provider_payment_charge_id=provider_charge_id,
-        telegram_payment_charge_id=telegram_charge_id,
+        provider=provider,
+        external_payment_id=external_payment_id,
+        status="completed",
     )
     session.add(p)
     await session.flush()
@@ -33,7 +38,6 @@ async def record_payment(
     user = await session.get(User, user_id)
     if user:
         await extend_premium(session, user, months)
-        # Check referral reward
         from sqlalchemy import select
         from app.models import Referral
         ref_result = await session.execute(

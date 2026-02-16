@@ -32,7 +32,7 @@ async def cb_habit_done(cb: CallbackQuery) -> None:
         used = await rem_svc.get_used_indices(session, user.id)
         phrase, idx = rem_svc.get_phrase(lang, used)
         await habit_log_service.log_done(session, habit_id, user.id, date.today())
-        await rem_svc.record_phrase_usage(session, user.id, idx)
+        await rem_svc.record_phrase_usage(session, user.id, habit_id, idx)
         await session.commit()
 
     await cb.message.edit_text("🎉")

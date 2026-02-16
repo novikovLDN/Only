@@ -55,12 +55,15 @@ async def run_reminders(bot) -> None:
             if weekday != ht.weekday:
                 continue
 
-            h, m = 0, 0
-            try:
-                parts = ht.time.split(":")
-                h, m = int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
-            except (ValueError, IndexError):
-                continue
+            t_val = ht.time
+            if hasattr(t_val, "hour"):
+                h, m = t_val.hour, t_val.minute
+            else:
+                try:
+                    parts = str(t_val).split(":")
+                    h, m = int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
+                except (ValueError, IndexError):
+                    continue
 
             if now_dt.hour != h or now_dt.minute != m:
                 continue
@@ -73,12 +76,13 @@ async def run_reminders(bot) -> None:
                 await rem_svc.reset_usage_if_needed(session, user.id, lang)
                 used = await rem_svc.get_used_indices(session, user.id)
                 phrase, idx = rem_svc.get_phrase(lang, used)
-                await rem_svc.record_phrase_usage(session, user.id, idx)
+                await rem_svc.record_phrase_usage(session, user.id, habit.id, idx)
                 await session.commit()
 
             try:
                 from app.texts import t
-                text = t(lang, "notification_format").format(title=habit.title, time=ht.time)
+                time_str = ht.time.strftime("%H:%M") if hasattr(ht.time, "strftime") else str(ht.time)
+                text = t(lang, "notification_format").format(title=habit.title, time=time_str)
                 await bot.send_message(
                     chat_id=user.telegram_id,
                     text=text,
