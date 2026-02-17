@@ -1,8 +1,89 @@
 """Settings, language, timezone keyboards."""
 
+from zoneinfo import available_timezones
+
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from app.texts import t
+
+COMMON_TIMEZONES = [
+    "UTC",
+    "Europe/Moscow",
+    "Europe/London",
+    "Asia/Dubai",
+    "Asia/Almaty",
+    "Asia/Tashkent",
+    "Asia/Bangkok",
+    "America/New_York",
+    "America/Los_Angeles",
+]
+
+_FULL_TZ_CACHE: list[str] | None = None
+
+
+def _get_all_timezones() -> list[str]:
+    global _FULL_TZ_CACHE
+    if _FULL_TZ_CACHE is None:
+        _FULL_TZ_CACHE = sorted(available_timezones())
+    return _FULL_TZ_CACHE
+
+
+def timezone_keyboard(current_tz: str, lang: str) -> InlineKeyboardMarkup:
+    """Main timezone screen: common timezones + Other + Back."""
+    lang = "en" if (lang or "").lower() == "en" else "ru"
+    back_text = t(lang, "btn_back")
+    other_text = t(lang, "tz_other")
+
+    buttons = []
+    for tz in COMMON_TIMEZONES:
+        label = f"🟢 {tz}" if tz == (current_tz or "UTC") else tz
+        buttons.append([
+            InlineKeyboardButton(text=label, callback_data=f"tz_set:{tz}"),
+        ])
+
+    buttons.append([
+        InlineKeyboardButton(text=other_text, callback_data="tz_other"),
+    ])
+    buttons.append([
+        InlineKeyboardButton(text=back_text, callback_data="settings"),
+    ])
+
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def timezone_full_keyboard(current_tz: str, page: int, lang: str) -> InlineKeyboardMarkup:
+    """Full timezone list with pagination."""
+    all_tz = _get_all_timezones()
+    page_size = 20
+    start = page * page_size
+    end = start + page_size
+    chunk = all_tz[start:end]
+
+    lang = "en" if (lang or "").lower() == "en" else "ru"
+    back_text = t(lang, "btn_back")
+    prev_text = "◀ Prev" if lang == "en" else "◀ Пред"
+    next_text = "Next ▶" if lang == "en" else "След ▶"
+
+    buttons = []
+    for tz in chunk:
+        label = f"🟢 {tz}" if tz == (current_tz or "UTC") else tz
+        buttons.append([
+            InlineKeyboardButton(text=label[:64], callback_data=f"tz_set:{tz}"),
+        ])
+
+    nav_row = []
+    if page > 0:
+        nav_row.append(InlineKeyboardButton(text=prev_text, callback_data=f"tz_page:{page - 1}"))
+    if end < len(all_tz):
+        nav_row.append(InlineKeyboardButton(text=next_text, callback_data=f"tz_page:{page + 1}"))
+    if nav_row:
+        buttons.append(nav_row)
+
+    buttons.append([
+        InlineKeyboardButton(text=back_text, callback_data="settings"),
+    ])
+
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 def lang_select(next_step: str = "tz") -> InlineKeyboardMarkup:

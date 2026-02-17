@@ -4,7 +4,7 @@ from aiogram import Router
 from aiogram.types import CallbackQuery
 
 from app.db import get_session_maker
-from app.keyboards import main_menu, settings_menu, lang_select, tz_select
+from app.keyboards import main_menu, settings_menu, lang_select, timezone_full_keyboard, timezone_keyboard
 from app.services import achievement_service, user_service
 from app.texts import t
 
@@ -33,14 +33,52 @@ async def cb_settings_tz(cb: CallbackQuery) -> None:
     async with sm() as session:
         user = await user_service.get_by_telegram_id(session, tid)
         lang = user.language_code if user else "en"
+        current_tz = user.timezone if user else "UTC"
 
-    await cb.message.edit_text(t(lang, "tz_prompt"), reply_markup=tz_select(lang, prefix="settz_"))
+    await cb.message.edit_text(t(lang, "tz_prompt"), reply_markup=timezone_keyboard(current_tz, lang))
 
 
-@router.callback_query(lambda c: c.data and c.data.startswith("settz_") and c.data != "settz_other")
-async def cb_settz_select(cb: CallbackQuery) -> None:
+@router.callback_query(lambda c: c.data == "tz_other")
+async def cb_tz_other(cb: CallbackQuery) -> None:
     await cb.answer()
-    tz = (cb.data or "").replace("settz_", "")
+    tid = cb.from_user.id if cb.from_user else 0
+
+    sm = get_session_maker()
+    async with sm() as session:
+        user = await user_service.get_by_telegram_id(session, tid)
+        lang = user.language_code if user else "en"
+        current_tz = user.timezone if user else "UTC"
+
+    await cb.message.edit_text(
+        t(lang, "tz_full_prompt"),
+        reply_markup=timezone_full_keyboard(current_tz, 0, lang),
+    )
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("tz_page:"))
+async def cb_tz_page(cb: CallbackQuery) -> None:
+    await cb.answer()
+    try:
+        page = int(cb.data.split(":")[1])
+    except (ValueError, IndexError):
+        page = 0
+    tid = cb.from_user.id if cb.from_user else 0
+
+    sm = get_session_maker()
+    async with sm() as session:
+        user = await user_service.get_by_telegram_id(session, tid)
+        lang = user.language_code if user else "en"
+        current_tz = user.timezone if user else "UTC"
+
+    await cb.message.edit_text(
+        t(lang, "tz_full_prompt"),
+        reply_markup=timezone_full_keyboard(current_tz, page, lang),
+    )
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("tz_set:"))
+async def cb_tz_set(cb: CallbackQuery) -> None:
+    tz = cb.data.split(":", 1)[1] if ":" in (cb.data or "") else "UTC"
     tid = cb.from_user.id if cb.from_user else 0
 
     sm = get_session_maker()
@@ -55,8 +93,10 @@ async def cb_settz_select(cb: CallbackQuery) -> None:
             )
             await session.commit()
         lang = user.language_code if user else "en"
+        current_tz = user.timezone if user else "UTC"
 
-    await cb.message.edit_text(t(lang, "settings_menu"), reply_markup=settings_menu(lang))
+    await cb.answer(t(lang, "tz_updated"))
+    await cb.message.edit_text(t(lang, "tz_prompt"), reply_markup=timezone_keyboard(current_tz, lang))
 
 
 @router.callback_query(lambda c: c.data == "settings_lang")
