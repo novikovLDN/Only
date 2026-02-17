@@ -1,4 +1,4 @@
-"""Payment — YooKassa / Telegram."""
+"""Payment — YooKassa / Telegram / 2328 Crypto."""
 
 from datetime import datetime
 
@@ -16,7 +16,13 @@ class Payment(Base):
     tariff: Mapped[str] = mapped_column(String(20), nullable=False)
     amount: Mapped[int] = mapped_column(Integer, nullable=False)
     provider: Mapped[str] = mapped_column(String(50), nullable=False)
-    external_payment_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    external_payment_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     invoice_message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    # Crypto (2328) fields
+    crypto_network: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    crypto_currency: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    crypto_address: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -100,8 +100,48 @@ async def run_daily_metrics_recalc(bot) -> None:
         logger.exception("Daily metrics recalc failed: %s", e)
 
 
+async def expire_crypto_payments(bot) -> None:
+    """Every 5 min: cancel expired crypto payments, delete invoice messages."""
+    from datetime import datetime, timezone
+    from sqlalchemy import select
+    from app.models import Payment, User
+    try:
+        sm = get_session_maker()
+        async with sm() as session:
+            now = datetime.now(timezone.utc)
+            result = await session.execute(
+                select(Payment).where(
+                    Payment.provider == "crypto",
+                    Payment.status.in_(["check", "pending"]),
+                    Payment.expires_at.isnot(None),
+                    Payment.expires_at < now,
+                )
+            )
+            payments = result.scalars().all()
+            for p in payments:
+                p.status = "cancel"
+                if p.invoice_message_id and bot:
+                    try:
+                        user = await session.get(User, p.user_id)
+                        if user:
+                            await bot.delete_message(chat_id=user.telegram_id, message_id=p.invoice_message_id)
+                    except Exception:
+                        pass
+            await session.commit()
+    except Exception as e:
+        logger.exception("Expire crypto payments failed: %s", e)
+
+
 def setup_scheduler(bot) -> None:
     sched = get_scheduler()
+    sched.add_job(
+        expire_crypto_payments,
+        trigger="interval",
+        minutes=5,
+        args=(bot,),
+        id="expire_crypto_payments",
+        replace_existing=True,
+    )
     sched.add_job(
         run_reminders,
         trigger="interval",

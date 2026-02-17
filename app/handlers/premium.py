@@ -30,26 +30,42 @@ async def cb_premium(cb: CallbackQuery) -> None:
     await safe_edit_or_send(cb, text, reply_markup=premium_menu(lang))
 
 
-@router.callback_query(lambda c: c.data and (c.data.startswith("pay_") or c.data.startswith("buy_tariff:")))
-async def cb_pay(cb: CallbackQuery) -> None:
+@router.callback_query(lambda c: c.data and c.data.startswith("buy_tariff:"))
+async def cb_select_tariff(cb: CallbackQuery) -> None:
+    """Tariff selected → show payment method (Card / Crypto)."""
     await cb.answer()
-    # Support pay_1/pay_3 (legacy) and buy_tariff:1M
-    data = cb.data or ""
-    if data.startswith("buy_tariff:"):
-        tariff_code = data.split(":", 1)[1].strip()
-    else:
-        months = data.replace("pay_", "")
-        tariff_code = {"1": "1M", "3": "3M", "6": "6M", "12": "12M"}.get(months, "1M")
-    tid = cb.from_user.id if cb.from_user else 0
-
-    if not settings.payment_provider_token:
-        await cb.message.answer("Payments not configured.")
-        return
-
+    tariff_code = (cb.data or "").split(":", 1)[1].strip()
     from app.core.premium import PREMIUM_TARIFFS
     if tariff_code not in PREMIUM_TARIFFS:
         return
+    tid = cb.from_user.id if cb.from_user else 0
+    sm = get_session_maker()
+    async with sm() as session:
+        user = await user_service.get_by_telegram_id(session, tid)
+        if not user:
+            return
+        lang = user.language_code
+    from app.keyboards.premium import payment_method_menu
+    text = t(lang, "payment_method_prompt")
+    await cb.message.edit_text(text, reply_markup=payment_method_menu(lang, tariff_code))
 
+
+@router.callback_query(lambda c: c.data and c.data.startswith("pay_card:"))
+async def cb_pay_card(cb: CallbackQuery) -> None:
+    """Card selected → Telegram Invoice."""
+    await cb.answer()
+    tariff_code = (cb.data or "").split(":", 1)[1].strip()
+    tid = cb.from_user.id if cb.from_user else 0
+    if not settings.payment_provider_token:
+        sm = get_session_maker()
+        async with sm() as session:
+            user = await user_service.get_by_telegram_id(session, tid)
+            lang = user.language_code if user else "ru"
+        await cb.message.answer(t(lang, "premium_paywall"), reply_markup=main_menu(lang))
+        return
+    from app.core.premium import PREMIUM_TARIFFS
+    if tariff_code not in PREMIUM_TARIFFS:
+        return
     sm = get_session_maker()
     async with sm() as session:
         user = await user_service.get_by_telegram_id(session, tid)
@@ -64,7 +80,63 @@ async def cb_pay(cb: CallbackQuery) -> None:
             settings.payment_provider_token,
         )
     if not payment:
-        await cb.message.answer("Ошибка создания оплаты. Попробуйте позже.")
+        sm = get_session_maker()
+        async with sm() as session:
+            user = await user_service.get_by_telegram_id(session, tid)
+            lang = user.language_code if user else "ru"
+        await cb.message.answer("Ошибка создания оплаты. Попробуйте позже.", reply_markup=main_menu(lang))
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("pay_crypto:"))
+async def cb_pay_crypto(cb: CallbackQuery) -> None:
+    """Crypto selected → 2328 create payment, send address + pay URL."""
+    await cb.answer()
+    tariff_code = (cb.data or "").split(":", 1)[1].strip()
+    tid = cb.from_user.id if cb.from_user else 0
+    from app.core.premium import PREMIUM_TARIFFS
+    if tariff_code not in PREMIUM_TARIFFS:
+        return
+    if not settings.crypto_api_key or not settings.webhook_base_url:
+        sm = get_session_maker()
+        async with sm() as session:
+            user = await user_service.get_by_telegram_id(session, tid)
+            lang = user.language_code if user else "ru"
+        await cb.message.answer("Crypto payments not configured.", reply_markup=main_menu(lang))
+        return
+    import uuid
+    order_id = f"CRYPTO-{tid}-{uuid.uuid4().hex[:8]}"
+    url_callback = f"{settings.webhook_base_url.rstrip('/')}/webhook/crypto"
+    sm = get_session_maker()
+    async with sm() as session:
+        user = await user_service.get_by_telegram_id(session, tid)
+        if not user:
+            return
+        lang = user.language_code
+        from app.services.crypto_service import create_crypto_payment
+        payment, pay_url = await create_crypto_payment(
+            session,
+            user,
+            tariff_code,
+            order_id,
+            url_callback,
+        )
+        if payment:
+            payment.invoice_message_id = cb.message.message_id if cb.message else None
+        await session.commit()
+    if not payment or not payment.crypto_address:
+        await cb.message.answer("Ошибка создания крипто-оплаты. Попробуйте позже.", reply_markup=main_menu(lang))
+        return
+    tinfo = PREMIUM_TARIFFS.get(tariff_code) or PREMIUM_TARIFFS["1M"]
+    price_usd = round(tinfo["price_rub"] / 100, 2)
+    from app.services.crypto_service import CURRENCY, NETWORK
+    text = t(lang, "crypto_invoice", address=payment.crypto_address, network=NETWORK, amount=price_usd, currency=CURRENCY)
+    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+    kb = InlineKeyboardMarkup(inline_keyboard=[])
+    if pay_url:
+        pay_btn = "💳 Перейти к оплате" if lang == "ru" else ("Pay now" if lang == "en" else "💳 الانتقال للدفع")
+        kb.inline_keyboard = [[InlineKeyboardButton(text=pay_btn, url=pay_url)]]
+    kb.inline_keyboard.append([InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="premium")])
+    await cb.message.edit_text(text, reply_markup=kb)
 
 
 @router.pre_checkout_query()

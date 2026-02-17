@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     bot_token: str = ""
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/habitbot"
     payment_provider_token: str = ""  # YooKassa LIVE token from @BotFather → Payments
+    crypto_api_key: str = ""
+    crypto_project_id: str = "8f7c14f1-2473-4652-9f7a-5c04693b40af"
+    webhook_base_url: str = ""  # e.g. https://your-app.railway.app
 
     @field_validator("database_url", mode="before")
     @classmethod
