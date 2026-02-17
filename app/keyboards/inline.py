@@ -102,8 +102,10 @@ def weekdays_select(t, selected: set[int], lang: str = "en", callback_prefix: st
             row = []
     if row:
         rows.append(row)
-    rows.append([InlineKeyboardButton(text=t("btn.next"), callback_data="days_done")])
-    rows.append([InlineKeyboardButton(text=t("btn.back"), callback_data=back_cb)])
+    rows.append([
+        InlineKeyboardButton(text=t("btn.back"), callback_data=back_cb),
+        InlineKeyboardButton(text=t("btn.next"), callback_data="days_done"),
+    ])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -119,8 +121,10 @@ def times_select(t, selected: set[int], callback_prefix: str = "time", done_call
             row = []
     if row:
         rows.append(row)
-    rows.append([InlineKeyboardButton(text=t("btn.done"), callback_data=done_callback)])
-    rows.append([InlineKeyboardButton(text=t("btn.back"), callback_data=back_callback)])
+    rows.append([
+        InlineKeyboardButton(text=t("btn.back"), callback_data=back_callback),
+        InlineKeyboardButton(text=t("btn.done"), callback_data=done_callback),
+    ])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 

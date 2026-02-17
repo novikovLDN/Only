@@ -95,8 +95,8 @@ def weekdays_keyboard(selected: list[int], lang: str) -> InlineKeyboardMarkup:
                 )
         kb.append(row)
     kb.append([
-        InlineKeyboardButton(text=t(lang, "habit_confirm_preset"), callback_data="days_ok"),
         InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="back_main"),
+        InlineKeyboardButton(text=t(lang, "habit_confirm_preset"), callback_data="days_ok"),
     ])
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
@@ -120,8 +120,8 @@ def time_keyboard(selected: list[str], lang: str) -> InlineKeyboardMarkup:
             )
         kb.append(row)
     kb.append([
-        InlineKeyboardButton(text=t(lang, "habit_confirm_preset"), callback_data="time_ok"),
         InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="back_main"),
+        InlineKeyboardButton(text=t(lang, "habit_confirm_preset"), callback_data="time_ok"),
     ])
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
@@ -129,8 +129,10 @@ def time_keyboard(selected: list[str], lang: str) -> InlineKeyboardMarkup:
 def confirm_keyboard(lang: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=t(lang, "habit_confirm_preset"), callback_data="habit_confirm_ok")],
-            [InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="back_main")],
+            [
+                InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="back_main"),
+                InlineKeyboardButton(text=t(lang, "habit_confirm_preset"), callback_data="habit_confirm_ok"),
+            ],
             [InlineKeyboardButton(text=t(lang, "habit_cancel"), callback_data="habit_cancel")],
         ]
     )
@@ -171,8 +173,8 @@ def edit_weekdays_keyboard(habit_id: int, selected: list[int], lang: str) -> Inl
                 )
         kb.append(row)
     kb.append([
-        InlineKeyboardButton(text=t(lang, "habit_confirm_preset"), callback_data=f"edit_days_ok:{habit_id}"),
         InlineKeyboardButton(text=t(lang, "btn_back"), callback_data=f"habit_{habit_id}"),
+        InlineKeyboardButton(text=t(lang, "habit_confirm_preset"), callback_data=f"edit_days_ok:{habit_id}"),
     ])
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
@@ -196,7 +198,7 @@ def edit_time_keyboard_for_habit(habit_id: int, selected: list[str], lang: str) 
             )
         kb.append(row)
     kb.append([
-        InlineKeyboardButton(text=t(lang, "habit_confirm_preset"), callback_data=f"edit_time_ok:{habit_id}"),
         InlineKeyboardButton(text=t(lang, "btn_back"), callback_data=f"habit_{habit_id}"),
+        InlineKeyboardButton(text=t(lang, "habit_confirm_preset"), callback_data=f"edit_time_ok:{habit_id}"),
     ])
     return InlineKeyboardMarkup(inline_keyboard=kb)
