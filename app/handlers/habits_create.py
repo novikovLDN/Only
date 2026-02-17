@@ -25,6 +25,12 @@ class CreateHabitStates(StatesGroup):
     confirm = State()
 
 
+@router.callback_query(F.data == "noop")
+async def cb_noop(cb: CallbackQuery) -> None:
+    """Acknowledge placeholder button tap to prevent loading state."""
+    await cb.answer()
+
+
 @router.callback_query(F.data == "premium_required")
 async def cb_premium_required(cb: CallbackQuery) -> None:
     await cb.answer()

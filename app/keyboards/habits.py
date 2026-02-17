@@ -7,6 +7,9 @@ from app.texts import t
 
 PAGE_SIZE = 6
 WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+# Fixed-width 2–3 char labels for stable 2-column grid (all devices)
+WEEKDAYS_RU = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "ВС"]
+WEEKDAYS_EN = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
 
 
 def build_presets_keyboard(lang: str, is_premium: bool, page: int = 0) -> InlineKeyboardMarkup:
@@ -69,29 +72,58 @@ def habits_list(habits: list[tuple[int, str]], lang: str) -> InlineKeyboardMarku
 
 
 def weekdays_keyboard(selected: list[int], lang: str) -> InlineKeyboardMarkup:
-    row1 = []
-    for i in range(7):
-        label = WEEKDAYS[i] + (" ✅" if i in selected else "")
-        row1.append(InlineKeyboardButton(text=label, callback_data=f"wd_{i}"))
-    rows = [row1]
-    rows.append([InlineKeyboardButton(text=t(lang, "habit_confirm_preset"), callback_data="days_ok")])
-    rows.append([InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="back_main")])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+    """2 columns × 4 rows for stable rendering on all devices."""
+    labels = WEEKDAYS_RU if (lang or "").lower() != "en" else WEEKDAYS_EN
+    selected_set = set(selected)
+    kb = []
+    for i in range(0, 8, 2):
+        row = []
+        for j in range(2):
+            idx = i + j
+            if idx < 7:
+                is_active = idx in selected_set
+                prefix = "🟢 " if is_active else "⚪ "
+                row.append(
+                    InlineKeyboardButton(
+                        text=f"{prefix}{labels[idx]}",
+                        callback_data=f"wd_{idx}",
+                    )
+                )
+            else:
+                row.append(
+                    InlineKeyboardButton(text="⬜", callback_data="noop")
+                )
+        kb.append(row)
+    kb.append([
+        InlineKeyboardButton(text=t(lang, "habit_confirm_preset"), callback_data="days_ok"),
+        InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="back_main"),
+    ])
+    return InlineKeyboardMarkup(inline_keyboard=kb)
 
 
 def time_keyboard(selected: list[str], lang: str) -> InlineKeyboardMarkup:
-    hours = [f"{h:02d}:00" for h in range(24)]
-    rows = []
-    for i in range(0, 24, 6):
+    """2 columns × 12 rows for stable rendering on all devices."""
+    selected_set = set(selected)
+    times = [f"{h:02d}:00" for h in range(24)]
+    kb = []
+    for i in range(0, 24, 2):
         row = []
-        for h in range(i, min(i + 6, 24)):
-            t_slot = f"{h:02d}:00"
-            label = t_slot + (" ✅" if t_slot in selected else "")
-            row.append(InlineKeyboardButton(text=label, callback_data=f"tm_{t_slot}"))
-        rows.append(row)
-    rows.append([InlineKeyboardButton(text=t(lang, "habit_confirm_preset"), callback_data="time_ok")])
-    rows.append([InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="back_main")])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+        for j in range(2):
+            t_slot = times[i + j]
+            is_active = t_slot in selected_set
+            prefix = "🟢 " if is_active else "⚪ "
+            row.append(
+                InlineKeyboardButton(
+                    text=f"{prefix}{t_slot}",
+                    callback_data=f"tm_{t_slot}",
+                )
+            )
+        kb.append(row)
+    kb.append([
+        InlineKeyboardButton(text=t(lang, "habit_confirm_preset"), callback_data="time_ok"),
+        InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="back_main"),
+    ])
+    return InlineKeyboardMarkup(inline_keyboard=kb)
 
 
 def confirm_keyboard(lang: str) -> InlineKeyboardMarkup:
@@ -116,26 +148,55 @@ def edit_habit_menu(habit_id: int, lang: str) -> InlineKeyboardMarkup:
 
 
 def edit_weekdays_keyboard(habit_id: int, selected: list[int], lang: str) -> InlineKeyboardMarkup:
-    row1 = []
-    for i in range(7):
-        label = WEEKDAYS[i] + (" ✅" if i in selected else "")
-        row1.append(InlineKeyboardButton(text=label, callback_data=f"edit_wd:{habit_id}:{i}"))
-    rows = [row1]
-    rows.append([InlineKeyboardButton(text=t(lang, "habit_confirm_preset"), callback_data=f"edit_days_ok:{habit_id}")])
-    rows.append([InlineKeyboardButton(text=t(lang, "btn_back"), callback_data=f"habit_{habit_id}")])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+    """2 columns × 4 rows for stable rendering on all devices."""
+    labels = WEEKDAYS_RU if (lang or "").lower() != "en" else WEEKDAYS_EN
+    selected_set = set(selected)
+    kb = []
+    for i in range(0, 8, 2):
+        row = []
+        for j in range(2):
+            idx = i + j
+            if idx < 7:
+                is_active = idx in selected_set
+                prefix = "🟢 " if is_active else "⚪ "
+                row.append(
+                    InlineKeyboardButton(
+                        text=f"{prefix}{labels[idx]}",
+                        callback_data=f"edit_wd:{habit_id}:{idx}",
+                    )
+                )
+            else:
+                row.append(
+                    InlineKeyboardButton(text="⬜", callback_data="noop")
+                )
+        kb.append(row)
+    kb.append([
+        InlineKeyboardButton(text=t(lang, "habit_confirm_preset"), callback_data=f"edit_days_ok:{habit_id}"),
+        InlineKeyboardButton(text=t(lang, "btn_back"), callback_data=f"habit_{habit_id}"),
+    ])
+    return InlineKeyboardMarkup(inline_keyboard=kb)
 
 
 def edit_time_keyboard_for_habit(habit_id: int, selected: list[str], lang: str) -> InlineKeyboardMarkup:
-    hours = [f"{h:02d}:00" for h in range(24)]
-    rows = []
-    for i in range(0, 24, 6):
+    """2 columns × 12 rows for stable rendering on all devices."""
+    selected_set = set(selected)
+    times = [f"{h:02d}:00" for h in range(24)]
+    kb = []
+    for i in range(0, 24, 2):
         row = []
-        for h in range(i, min(i + 6, 24)):
-            t_slot = f"{h:02d}:00"
-            label = t_slot + (" ✅" if t_slot in selected else "")
-            row.append(InlineKeyboardButton(text=label, callback_data=f"edit_tm:{habit_id}:{t_slot}"))
-        rows.append(row)
-    rows.append([InlineKeyboardButton(text=t(lang, "habit_confirm_preset"), callback_data=f"edit_time_ok:{habit_id}")])
-    rows.append([InlineKeyboardButton(text=t(lang, "btn_back"), callback_data=f"habit_{habit_id}")])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+        for j in range(2):
+            t_slot = times[i + j]
+            is_active = t_slot in selected_set
+            prefix = "🟢 " if is_active else "⚪ "
+            row.append(
+                InlineKeyboardButton(
+                    text=f"{prefix}{t_slot}",
+                    callback_data=f"edit_tm:{habit_id}:{t_slot}",
+                )
+            )
+        kb.append(row)
+    kb.append([
+        InlineKeyboardButton(text=t(lang, "habit_confirm_preset"), callback_data=f"edit_time_ok:{habit_id}"),
+        InlineKeyboardButton(text=t(lang, "btn_back"), callback_data=f"habit_{habit_id}"),
+    ])
+    return InlineKeyboardMarkup(inline_keyboard=kb)
