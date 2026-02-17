@@ -78,7 +78,7 @@ async def cb_tz_page(cb: CallbackQuery) -> None:
 
 @router.callback_query(lambda c: c.data and c.data.startswith("tz_set:"))
 async def cb_tz_set(cb: CallbackQuery) -> None:
-    tz = cb.data.split(":", 1)[1] if ":" in (cb.data or "") else "UTC"
+    tz = (cb.data.split(":", 1)[1] if ":" in (cb.data or "") else "UTC").strip()
     tid = cb.from_user.id if cb.from_user else 0
 
     sm = get_session_maker()
@@ -92,8 +92,9 @@ async def cb_tz_set(cb: CallbackQuery) -> None:
                 session, user.id, user, cb.bot, user.telegram_id, trigger="profile_updated"
             )
             await session.commit()
+        user = await user_service.get_by_telegram_id(session, tid)
         lang = user.language_code if user else "en"
-        current_tz = user.timezone if user else "UTC"
+        current_tz = (user.timezone if user else "UTC").strip()
 
     await cb.answer(t(lang, "tz_updated"))
     await cb.message.edit_text(t(lang, "tz_prompt"), reply_markup=timezone_keyboard(current_tz, lang))

@@ -61,7 +61,12 @@ async def update_language(session: AsyncSession, user: User, language_code: str)
 
 
 async def update_timezone(session: AsyncSession, user: User, timezone: str) -> None:
-    user.timezone = timezone or "UTC"
+    from zoneinfo import available_timezones
+
+    tz = (timezone or "UTC").strip()
+    if tz not in available_timezones():
+        tz = "UTC"
+    user.timezone = tz
     await session.flush()
 
 

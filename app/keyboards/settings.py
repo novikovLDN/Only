@@ -30,15 +30,17 @@ def _get_all_timezones() -> list[str]:
 
 def timezone_keyboard(current_tz: str, lang: str) -> InlineKeyboardMarkup:
     """Main timezone screen: common timezones + Other + Back."""
+    current_tz = (current_tz or "UTC").strip()
     lang = "en" if (lang or "").lower() == "en" else "ru"
     back_text = t(lang, "btn_back")
     other_text = t(lang, "tz_other")
 
     buttons = []
     for tz in COMMON_TIMEZONES:
-        label = f"🟢 {tz}" if tz == (current_tz or "UTC") else tz
+        tz_clean = tz.strip()
+        label = f"🟢 {tz_clean}" if tz_clean == current_tz else tz_clean
         buttons.append([
-            InlineKeyboardButton(text=label, callback_data=f"tz_set:{tz}"),
+            InlineKeyboardButton(text=label, callback_data=f"tz_set:{tz_clean}"),
         ])
 
     buttons.append([
@@ -53,6 +55,7 @@ def timezone_keyboard(current_tz: str, lang: str) -> InlineKeyboardMarkup:
 
 def timezone_full_keyboard(current_tz: str, page: int, lang: str) -> InlineKeyboardMarkup:
     """Full timezone list with pagination."""
+    current_tz = (current_tz or "UTC").strip()
     all_tz = _get_all_timezones()
     page_size = 20
     start = page * page_size
@@ -66,9 +69,10 @@ def timezone_full_keyboard(current_tz: str, page: int, lang: str) -> InlineKeybo
 
     buttons = []
     for tz in chunk:
-        label = f"🟢 {tz}" if tz == (current_tz or "UTC") else tz
+        tz_clean = tz.strip()
+        label = f"🟢 {tz_clean}" if tz_clean == current_tz else tz_clean
         buttons.append([
-            InlineKeyboardButton(text=label[:64], callback_data=f"tz_set:{tz}"),
+            InlineKeyboardButton(text=label[:64], callback_data=f"tz_set:{tz_clean}"),
         ])
 
     nav_row = []
