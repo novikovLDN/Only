@@ -6,7 +6,7 @@ from typing import Any, Awaitable, Callable
 from aiogram import BaseMiddleware
 from aiogram.types import Message, CallbackQuery, PreCheckoutQuery, TelegramObject
 
-from app.core.database import get_session_maker
+from app.db import get_session_maker
 from app.repositories.referral_repo import ReferralRepository
 from app.repositories.user_repo import UserRepository
 from app.services.referral_service import ReferralService

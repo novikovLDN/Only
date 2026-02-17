@@ -1,21 +1,11 @@
-"""Achievements system — tables and seed.
+"""Seed data for fresh databases."""
 
-Revision ID: 017
-Revises: 016
-Create Date: 2025-01-31
+from sqlalchemy import select
 
-"""
-from typing import Sequence, Union
+from app.database import get_session_maker
+from app.models import Achievement
 
-import sqlalchemy as sa
-from alembic import op
-
-revision: str = "017"
-down_revision: Union[str, None] = "016"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
-
-SEED = [
+ACHIEVEMENTS_SEED = [
     {"code": "FIRST_STEP", "name_ru": "Первый шаг", "name_en": "First Step", "description_ru": "Создай первую привычку", "description_en": "Create your first habit",
      "unlock_msg_ru": "Отличное начало! Первая привычка создана — ты уже в игре 🚀", "unlock_msg_en": "Great start! Your first habit is created — you're in the game 🚀"},
     {"code": "AWARE_START", "name_ru": "Осознанный старт", "name_en": "Aware Start", "description_ru": "Создай 3 привычки", "description_en": "Create 3 habits",
@@ -31,7 +21,7 @@ SEED = [
     {"code": "FIRST_10", "name_ru": "Первая десятка", "name_en": "First 10", "description_ru": "Выполни 10 действий", "description_en": "Complete 10 actions",
      "unlock_msg_ru": "10 действий выполнено. Привычка начинает закрепляться.", "unlock_msg_en": "10 actions done. Habit is forming."},
     {"code": "WEEK_FOCUS", "name_ru": "Фокус недели", "name_en": "Week Focus", "description_ru": "Выполни все привычки за день", "description_en": "Complete all habits in one day",
-     "unlock_msg_ru": "Идеальный день! Все привычки выполнены.", "unlock_msg_en": "Perfect day! All habits completed."},
+     "unlock_msg_ru": "Идеальный день! Все привычки выполнены.", "unlock_msg_en": "Perfect day! Habits completed."},
     {"code": "PERFECT_MONDAY", "name_ru": "Идеальный понедельник", "name_en": "Perfect Monday", "description_ru": "Выполни все привычки в понедельник", "description_en": "Complete all habits on Monday",
      "unlock_msg_ru": "Понедельник — твой день! Отличное начало недели.", "unlock_msg_en": "Monday is your day! Great start to the week."},
     {"code": "NO_SKIP_3", "name_ru": "Без пропусков 3 дня", "name_en": "No Skip 3", "description_ru": "3 дня подряд без пропусков", "description_en": "3 days in a row with no skips",
@@ -119,51 +109,14 @@ SEED = [
 ]
 
 
-def upgrade() -> None:
-    op.create_table(
-        "achievements",
-        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column("code", sa.String(64), nullable=False),
-        sa.Column("name_ru", sa.Text(), nullable=False),
-        sa.Column("name_en", sa.Text(), nullable=False),
-        sa.Column("description_ru", sa.Text(), nullable=False),
-        sa.Column("description_en", sa.Text(), nullable=False),
-        sa.Column("unlock_msg_ru", sa.Text(), nullable=False),
-        sa.Column("unlock_msg_en", sa.Text(), nullable=False),
-        sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("code", name="uq_achievements_code"),
-    )
-    op.create_index("ix_achievements_code", "achievements", ["code"], unique=True)
+async def seed_achievements() -> None:
+    """Insert achievements if table is empty. Idempotent."""
+    sm = get_session_maker()
+    async with sm() as session:
+        result = await session.execute(select(Achievement).limit(1))
+        if result.scalar_one_or_none() is not None:
+            return  # Already seeded
 
-    op.create_table(
-        "user_achievements",
-        sa.Column("id", sa.BigInteger(), autoincrement=True, nullable=False),
-        sa.Column("user_id", sa.BigInteger(), nullable=False),
-        sa.Column("achievement_id", sa.Integer(), nullable=False),
-        sa.Column("unlocked_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=True),
-        sa.ForeignKeyConstraint(["achievement_id"], ["achievements.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("user_id", "achievement_id", name="uq_user_achievement"),
-    )
-    op.create_index("idx_user_achievements_user_id", "user_achievements", ["user_id"], unique=False)
-
-    # Seed achievements
-    ach = sa.table(
-        "achievements",
-        sa.column("code", sa.String),
-        sa.column("name_ru", sa.Text),
-        sa.column("name_en", sa.Text),
-        sa.column("description_ru", sa.Text),
-        sa.column("description_en", sa.Text),
-        sa.column("unlock_msg_ru", sa.Text),
-        sa.column("unlock_msg_en", sa.Text),
-    )
-    op.bulk_insert(ach, SEED)
-
-
-def downgrade() -> None:
-    op.drop_index("idx_user_achievements_user_id", table_name="user_achievements")
-    op.drop_table("user_achievements")
-    op.drop_index("ix_achievements_code", table_name="achievements")
-    op.drop_table("achievements")
+        for row in ACHIEVEMENTS_SEED:
+            session.add(Achievement(**row))
+        await session.commit()
