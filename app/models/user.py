@@ -21,6 +21,10 @@ class User(Base):
     level: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     premium_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     premium_reward_days: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    discount_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    discount_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    discount_given_by: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    discount_created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), onupdate=func.now())
 

@@ -26,8 +26,12 @@ async def cb_premium(cb: CallbackQuery) -> None:
         lang = user.language_code
         is_premium = user_service.is_premium(user)
 
+    from app.services.discount_service import is_discount_active
     text = t(lang, "premium_screen")
-    await safe_edit_or_send(cb, text, reply_markup=premium_menu(lang))
+    if is_discount_active(user):
+        until_str = user.discount_until.strftime("%d.%m.%Y") if user.discount_until else ""
+        text = text + "\n\n" + t(lang, "premium_discount_banner", percent=user.discount_percent, until=until_str)
+    await safe_edit_or_send(cb, text, reply_markup=premium_menu(lang, user))
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith("buy_tariff:"))
@@ -177,8 +181,9 @@ async def cb_crypto_network(cb: CallbackQuery) -> None:
     if not payment or not payment.crypto_address:
         await cb.message.answer("Ошибка создания крипто-оплаты. Попробуйте позже.", reply_markup=main_menu(lang))
         return
-    tinfo = PREMIUM_TARIFFS.get(tariff_code) or PREMIUM_TARIFFS["1M"]
-    price_usd = round(tinfo["price_rub"] / 100, 2)
+    # Use actual (discounted) amount from payment
+    final_rub = payment.amount / 100  # amount is kopecks
+    price_usd = round(final_rub / 100, 2)  # RUB->USD same as crypto_service
     from app.services.crypto_service import CURRENCY, NETWORK_LABELS
     network_label = NETWORK_LABELS.get(network, network)
     text = t(lang, "crypto_invoice_full", amount=price_usd, currency=CURRENCY, network=network_label, address=payment.crypto_address, network_short=network_label)

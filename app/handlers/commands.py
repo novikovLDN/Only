@@ -95,8 +95,12 @@ async def cmd_premium(message: Message, state: FSMContext) -> None:
         lang = user.language_code
         is_premium = user_service.is_premium(user)
 
+    from app.services.discount_service import is_discount_active
     text = t(lang, "premium_screen")
-    await message.answer(text, reply_markup=premium_menu(lang))
+    if is_discount_active(user):
+        until_str = user.discount_until.strftime("%d.%m.%Y") if user.discount_until else ""
+        text = text + "\n\n" + t(lang, "premium_discount_banner", percent=user.discount_percent, until=until_str)
+    await message.answer(text, reply_markup=premium_menu(lang, user))
 
 
 @router.message(Command("referral"))

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -21,6 +21,8 @@ class Payment(Base):
     invoice_message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+    original_amount: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    discount_percent_applied: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # Crypto (2328) fields
     crypto_network: Mapped[str | None] = mapped_column(String(50), nullable=True)
     crypto_currency: Mapped[str | None] = mapped_column(String(20), nullable=True)

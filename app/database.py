@@ -62,6 +62,7 @@ async def init_db() -> None:
         await conn.run_sync(Base.metadata.create_all)
     await _ensure_indexes(engine)
     await _migrate_crypto_columns(engine)
+    await _migrate_discount_columns(engine)
     from app.db_seed import seed_achievements
     await seed_achievements()
     logger.info("Database schema ensured")
@@ -72,6 +73,7 @@ async def _ensure_indexes(engine) -> None:
     from sqlalchemy import text
     indexes = [
         "CREATE INDEX IF NOT EXISTS idx_users_timezone ON users (timezone)",
+        "CREATE INDEX IF NOT EXISTS idx_users_discount_until ON users (discount_until)",
         "CREATE INDEX IF NOT EXISTS idx_payments_external_id ON payments (external_payment_id)",
         "CREATE INDEX IF NOT EXISTS idx_payments_crypto_network ON payments (crypto_network)",
     ]
@@ -81,6 +83,36 @@ async def _ensure_indexes(engine) -> None:
                 await conn.execute(text(sql))
             except Exception as e:
                 logger.warning("Index creation skipped: %s", e)
+
+
+async def _migrate_discount_columns(engine) -> None:
+    """Add discount columns if missing (idempotent)."""
+    from sqlalchemy import text
+    user_cols = [
+        ("discount_percent", "INTEGER NOT NULL DEFAULT 0"),
+        ("discount_until", "TIMESTAMP WITH TIME ZONE"),
+        ("discount_given_by", "BIGINT"),
+        ("discount_created_at", "TIMESTAMP WITH TIME ZONE"),
+    ]
+    payment_cols = [
+        ("original_amount", "NUMERIC(10,2)"),
+        ("discount_percent_applied", "INTEGER DEFAULT 0"),
+    ]
+    async with engine.begin() as conn:
+        for name, typ in user_cols:
+            try:
+                await conn.execute(text(
+                    f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {name} {typ}"
+                ))
+            except Exception as e:
+                logger.warning("Migration users.%s skipped: %s", name, e)
+        for name, typ in payment_cols:
+            try:
+                await conn.execute(text(
+                    f"ALTER TABLE payments ADD COLUMN IF NOT EXISTS {name} {typ}"
+                ))
+            except Exception as e:
+                logger.warning("Migration payments.%s skipped: %s", name, e)
 
 
 async def _migrate_crypto_columns(engine) -> None:

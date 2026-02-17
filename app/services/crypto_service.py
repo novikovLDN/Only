@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.premium import PREMIUM_TARIFFS
+from app.services.discount_service import calculate_price_with_discount
 from app.models import Payment, Referral, User
 from app.services.referral_service import give_reward_if_pending
 from app.services.user_service import extend_premium
@@ -76,17 +77,22 @@ async def create_crypto_payment(
 
     tinfo = PREMIUM_TARIFFS.get(tariff_code) or PREMIUM_TARIFFS["1M"]
     months = tinfo["months"]
-    price_usd = _rub_to_usd(tinfo["price_rub"])
+    base_rub = tinfo["price_rub"]
+    final_kopecks, discount_pct, original_rub = calculate_price_with_discount(user, base_rub)
+    final_rub = final_kopecks / 100
+    price_usd = _rub_to_usd(final_rub)
     tariff_name = {1: "1m", 3: "3m", 6: "6m", 12: "12m"}.get(months, "1m")
 
     # Create pending payment in DB first
     payment = Payment(
         user_id=user.id,
         tariff=tariff_name,
-        amount=int(tinfo["price_rub"] * 100),
+        amount=final_kopecks,
         provider="crypto",
         status="pending",
         external_payment_id=None,
+        original_amount=float(original_rub),
+        discount_percent_applied=discount_pct,
     )
     session.add(payment)
     await session.flush()

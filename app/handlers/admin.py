@@ -15,6 +15,9 @@ from app.services import admin_service, user_service
 from app.texts import _normalize_lang, t
 from app.keyboards.admin import (
     admin_back_keyboard,
+    admin_discount_confirm_keyboard,
+    admin_discount_duration_keyboard,
+    admin_discount_percent_keyboard,
     admin_habits_keyboard,
     admin_main_keyboard,
     admin_user_actions_keyboard,
@@ -31,6 +34,8 @@ class AdminStates(StatesGroup):
     grant_duration = State()
     delete_user_tg_id = State()
     delete_user_confirm = State()
+    discount_percent_manual = State()
+    discount_duration_manual = State()
 
 
 def _is_admin(user_id: int | None) -> bool:
@@ -225,6 +230,234 @@ async def admin_apply_grant(message: Message, state: FSMContext) -> None:
         await session.commit()
     await message.answer(t(lang, "admin_grant_ok"))
     await state.clear()
+
+
+@router.callback_query(F.data.startswith("admin_discount:"))
+async def admin_discount_start(cb: CallbackQuery, state: FSMContext) -> None:
+    if not _is_admin(cb.from_user.id if cb.from_user else None):
+        return
+    await cb.answer()
+    parts = cb.data.split(":")
+    if len(parts) < 2:
+        return
+    tg_id = int(parts[1])
+    tid = cb.from_user.id if cb.from_user else 0
+    sm = get_session_maker()
+    async with sm() as session:
+        admin_user = await user_service.get_by_telegram_id(session, tid)
+        lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
+    await state.update_data(admin_discount_tg_id=tg_id)
+    await state.clear()
+    await cb.message.edit_text(
+        t(lang, "admin_discount_title"),
+        reply_markup=admin_discount_percent_keyboard(tg_id, lang),
+    )
+
+
+@router.callback_query(F.data.startswith("admin_discount_pct:"))
+async def admin_discount_pct(cb: CallbackQuery, state: FSMContext) -> None:
+    if not _is_admin(cb.from_user.id if cb.from_user else None):
+        return
+    await cb.answer()
+    parts = cb.data.split(":")
+    if len(parts) < 3:
+        return
+    tg_id, percent = int(parts[1]), int(parts[2])
+    tid = cb.from_user.id if cb.from_user else 0
+    sm = get_session_maker()
+    async with sm() as session:
+        admin_user = await user_service.get_by_telegram_id(session, tid)
+        lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
+    await cb.message.edit_text(
+        t(lang, "admin_discount_duration_prompt"),
+        reply_markup=admin_discount_duration_keyboard(tg_id, percent, lang),
+    )
+
+
+@router.callback_query(F.data.startswith("admin_discount_pct_manual:"))
+async def admin_discount_pct_manual(cb: CallbackQuery, state: FSMContext) -> None:
+    if not _is_admin(cb.from_user.id if cb.from_user else None):
+        return
+    await cb.answer()
+    tg_id = int(cb.data.split(":")[1])
+    tid = cb.from_user.id if cb.from_user else 0
+    sm = get_session_maker()
+    async with sm() as session:
+        admin_user = await user_service.get_by_telegram_id(session, tid)
+        lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
+    await state.update_data(admin_discount_tg_id=tg_id)
+    await state.set_state(AdminStates.discount_percent_manual)
+    await cb.message.edit_text(
+        t(lang, "admin_discount_percent_manual"),
+        reply_markup=admin_back_keyboard(lang),
+    )
+
+
+@router.message(AdminStates.discount_percent_manual, F.text)
+async def admin_discount_percent_manual_input(message: Message, state: FSMContext) -> None:
+    if not _is_admin(message.from_user.id if message.from_user else None):
+        return
+    data = await state.get_data()
+    tg_id = data.get("admin_discount_tg_id")
+    if not tg_id:
+        await state.clear()
+        return
+    try:
+        percent = int((message.text or "").strip())
+        if percent < 1 or percent > 99:
+            raise ValueError("out of range")
+    except (ValueError, TypeError):
+        tid = message.from_user.id if message.from_user else 0
+        sm = get_session_maker()
+        async with sm() as session:
+            admin_user = await user_service.get_by_telegram_id(session, tid)
+            lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
+        await message.answer(t(lang, "admin_invalid_format"))
+        return
+    tid = message.from_user.id if message.from_user else 0
+    sm = get_session_maker()
+    async with sm() as session:
+        admin_user = await user_service.get_by_telegram_id(session, tid)
+        lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
+    await state.clear()
+    await message.answer(
+        t(lang, "admin_discount_duration_prompt"),
+        reply_markup=admin_discount_duration_keyboard(tg_id, percent, lang),
+    )
+
+
+@router.callback_query(F.data.startswith("admin_discount_dur:"))
+async def admin_discount_dur(cb: CallbackQuery, state: FSMContext) -> None:
+    if not _is_admin(cb.from_user.id if cb.from_user else None):
+        return
+    await cb.answer()
+    parts = cb.data.split(":")
+    if len(parts) < 4:
+        return
+    tg_id, percent, days = int(parts[1]), int(parts[2]), int(parts[3])
+    tid = cb.from_user.id if cb.from_user else 0
+    sm = get_session_maker()
+    async with sm() as session:
+        result = await session.execute(select(User).where(User.telegram_id == tg_id))
+        target_user = result.scalar_one_or_none()
+        admin_user = await user_service.get_by_telegram_id(session, tid)
+        lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
+    if not target_user:
+        await cb.message.edit_text(t(lang, "admin_user_not_found"), reply_markup=admin_back_keyboard(lang))
+        return
+    from datetime import datetime, timezone, timedelta
+    until = (datetime.now(timezone.utc) + timedelta(days=days)).strftime("%d.%m.%Y")
+    username_str = f"@{target_user.username}" if target_user.username else str(tg_id)
+    await cb.message.edit_text(
+        t(lang, "admin_discount_confirm_text", username=username_str, id=tg_id, percent=percent, until=until),
+        reply_markup=admin_discount_confirm_keyboard(tg_id, percent, days, lang),
+    )
+
+
+@router.callback_query(F.data.startswith("admin_discount_dur_manual:"))
+async def admin_discount_dur_manual(cb: CallbackQuery, state: FSMContext) -> None:
+    if not _is_admin(cb.from_user.id if cb.from_user else None):
+        return
+    await cb.answer()
+    parts = cb.data.split(":")
+    if len(parts) < 3:
+        return
+    tg_id, percent = int(parts[1]), int(parts[2])
+    tid = cb.from_user.id if cb.from_user else 0
+    sm = get_session_maker()
+    async with sm() as session:
+        admin_user = await user_service.get_by_telegram_id(session, tid)
+        lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
+    await state.update_data(admin_discount_tg_id=tg_id, admin_discount_percent=percent)
+    await state.set_state(AdminStates.discount_duration_manual)
+    await cb.message.edit_text(
+        t(lang, "admin_discount_duration_manual"),
+        reply_markup=admin_back_keyboard(lang),
+    )
+
+
+@router.message(AdminStates.discount_duration_manual, F.text)
+async def admin_discount_duration_manual_input(message: Message, state: FSMContext) -> None:
+    if not _is_admin(message.from_user.id if message.from_user else None):
+        return
+    data = await state.get_data()
+    tg_id = data.get("admin_discount_tg_id")
+    percent = data.get("admin_discount_percent", 10)
+    if not tg_id:
+        await state.clear()
+        return
+    try:
+        days = int((message.text or "").strip())
+        if days < 1 or days > 365:
+            raise ValueError("out of range")
+    except (ValueError, TypeError):
+        tid = message.from_user.id if message.from_user else 0
+        sm = get_session_maker()
+        async with sm() as session:
+            admin_user = await user_service.get_by_telegram_id(session, tid)
+            lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
+        await message.answer(t(lang, "admin_invalid_format"))
+        return
+    tid = message.from_user.id if message.from_user else 0
+    sm = get_session_maker()
+    async with sm() as session:
+        result = await session.execute(select(User).where(User.telegram_id == tg_id))
+        target_user = result.scalar_one_or_none()
+        admin_user = await user_service.get_by_telegram_id(session, tid)
+        lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
+    await state.clear()
+    if not target_user:
+        await message.answer(t(lang, "admin_user_not_found"), reply_markup=admin_back_keyboard(lang))
+        return
+    from datetime import datetime, timezone, timedelta
+    until = (datetime.now(timezone.utc) + timedelta(days=days)).strftime("%d.%m.%Y")
+    username_str = f"@{target_user.username}" if target_user.username else str(tg_id)
+    await message.answer(
+        t(lang, "admin_discount_confirm_text", username=username_str, id=tg_id, percent=percent, until=until),
+        reply_markup=admin_discount_confirm_keyboard(tg_id, percent, days, lang),
+    )
+
+
+@router.callback_query(F.data.startswith("admin_discount_confirm:"))
+async def admin_discount_confirm(cb: CallbackQuery, state: FSMContext) -> None:
+    if not _is_admin(cb.from_user.id if cb.from_user else None):
+        return
+    await cb.answer()
+    parts = cb.data.split(":")
+    if len(parts) < 4:
+        return
+    tg_id, percent, days = int(parts[1]), int(parts[2]), int(parts[3])
+    tid = cb.from_user.id if cb.from_user else 0
+    sm = get_session_maker()
+    async with sm() as session:
+        result = await session.execute(select(User).where(User.telegram_id == tg_id))
+        target_user = result.scalar_one_or_none()
+        admin_user = await user_service.get_by_telegram_id(session, tid)
+        lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
+    if not target_user:
+        await cb.message.edit_text(t(lang, "admin_user_not_found"), reply_markup=admin_back_keyboard(lang))
+        return
+    async with sm() as session:
+        admin_result = await session.execute(select(User).where(User.telegram_id == tid))
+        admin_user = admin_result.scalar_one_or_none()
+        if admin_user:
+            from app.services.discount_service import grant_discount
+            await grant_discount(session, target_user.id, percent, days, admin_user.id)
+            await session.commit()
+            try:
+                from datetime import datetime, timezone, timedelta
+                until = (datetime.now(timezone.utc) + timedelta(days=days)).strftime("%d.%m.%Y")
+                user_lang = target_user.language_code if target_user.language_code in ("ru", "en", "ar") else "ru"
+                await cb.bot.send_message(
+                    chat_id=tg_id,
+                    text=t(user_lang, "discount_granted_notify", percent=percent, until=until),
+                )
+            except Exception:
+                pass
+    await cb.message.edit_text(
+        t(lang, "admin_discount_granted"),
+        reply_markup=admin_back_keyboard(lang),
+    )
 
 
 @router.callback_query(F.data.startswith("admin_revoke:"))

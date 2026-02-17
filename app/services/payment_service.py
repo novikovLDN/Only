@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.premium import PREMIUM_TARIFFS
 from app.models import Payment, Referral, User
+from app.services.discount_service import calculate_price_with_discount
 from app.services.referral_service import give_reward_if_pending
 from app.services.user_service import extend_premium
 
@@ -29,21 +30,24 @@ async def create_invoice(
     """Create pending payment, send invoice, save message_id, schedule expire. Returns payment."""
     tinfo = PREMIUM_TARIFFS.get(tariff_code) or PREMIUM_TARIFFS["1M"]
     months = tinfo["months"]
-    amount = tinfo["price_rub"] * 100  # kopecks
+    base_rub = tinfo["price_rub"]
+    final_kopecks, discount_pct, original_rub = calculate_price_with_discount(user, base_rub)
     tariff = TARIFF_NAMES.get(months, "1m")
     p = Payment(
         user_id=user.id,
         tariff=tariff,
-        amount=amount,
+        amount=final_kopecks,
         provider="telegram",
         status="pending",
+        original_amount=float(original_rub),
+        discount_percent_applied=discount_pct,
     )
     session.add(p)
     await session.flush()
     await session.refresh(p)
 
     try:
-        prices = [LabeledPrice(label=f"{months} мес", amount=amount)]
+        prices = [LabeledPrice(label=f"{months} мес", amount=final_kopecks)]
         msg = await bot.send_invoice(
             chat_id=user.telegram_id,
             title="💎 Premium подписка",
