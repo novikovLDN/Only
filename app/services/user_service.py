@@ -4,7 +4,6 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from zoneinfo import ZoneInfo
 
 from app.db import get_session_maker
 from app.models import User
@@ -44,7 +43,7 @@ async def get_or_create(
         username=username,
         first_name=first_name,
         language_code=lang,
-        timezone="UTC",
+        timezone="Europe/Moscow",
     )
     session.add(user)
     await session.commit()
@@ -62,14 +61,13 @@ async def update_language(session: AsyncSession, user: User, language_code: str)
     await session.flush()
 
 
+ALLOWED_TIMEZONES = {"Europe/Moscow", "Europe/London", "America/New_York", "Asia/Dubai"}
+
+
 def _validate_iana_timezone(tz: str) -> str:
-    """Validate IANA timezone via ZoneInfo. Returns normalized string or 'UTC' if invalid."""
-    tz = (tz or "UTC").strip()
-    try:
-        ZoneInfo(tz)
-        return tz
-    except Exception:
-        return "UTC"
+    """Only 4 TZ allowed. Returns Europe/Moscow if invalid."""
+    tz = (tz or "Europe/Moscow").strip()
+    return tz if tz in ALLOWED_TIMEZONES else "Europe/Moscow"
 
 
 async def update_timezone(session: AsyncSession, user: User, timezone: str) -> None:

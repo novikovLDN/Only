@@ -16,7 +16,7 @@ class User(Base):
     first_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     username: Mapped[str | None] = mapped_column(String(255), nullable=True)
     language_code: Mapped[str] = mapped_column(String(5), nullable=False, default="ru")
-    timezone: Mapped[str] = mapped_column(String(50), nullable=False, default="UTC")
+    timezone: Mapped[str] = mapped_column(String(50), nullable=False, default="Europe/Moscow")
     xp: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     level: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     premium_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -96,13 +96,16 @@ async def cb_lang_onboard(cb: CallbackQuery) -> None:
     await cb.message.edit_text(t(lang, "tz_prompt"), reply_markup=tz_select(lang))
 
 
-@router.callback_query(lambda c: c.data and c.data.startswith("tz_") and c.data != "tz_other")
+@router.callback_query(lambda c: c.data and c.data.startswith("tz_onboard:"))
 async def cb_tz(cb: CallbackQuery) -> None:
     await cb.answer()
-    tz = (cb.data or "").replace("tz_", "")
+    tz = (cb.data or "").split(":", 1)[1] if ":" in (cb.data or "") else "Europe/Moscow"
     tid = cb.from_user.id if cb.from_user else 0
     fname = cb.from_user.first_name if cb.from_user else ""
 
+    from app.services import timezone_service
+    if not timezone_service.validate_timezone(tz):
+        tz = "Europe/Moscow"
     sm = get_session_maker()
     async with sm() as session:
         from sqlalchemy import select

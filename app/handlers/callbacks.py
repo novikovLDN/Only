@@ -44,10 +44,10 @@ async def cb_lang(cb: CallbackQuery) -> None:
     await cb.message.edit_text(t(lang, "main_title"), reply_markup=main_menu(lang))
 
 
-@router.callback_query(lambda c: c.data and c.data.startswith("tz_") and c.data != "tz_other")
+@router.callback_query(lambda c: c.data and c.data.startswith("tz_onboard:"))
 async def cb_tz(cb: CallbackQuery) -> None:
     await cb.answer()
-    tz = cb.data.replace("tz_", "")
+    tz = (cb.data or "").split(":", 1)[1] if ":" in (cb.data or "") else "Europe/Moscow"
     tid = cb.from_user.id if cb.from_user else 0
 
     sm = get_session_maker()
@@ -55,7 +55,8 @@ async def cb_tz(cb: CallbackQuery) -> None:
         r = await session.execute(select(User).where(User.telegram_id == tid))
         user = r.scalar_one_or_none()
         if user:
-            await users.update_timezone(session, user, tz)
+            from app.services import user_service
+            await user_service.update_timezone(session, user, tz)
         await session.commit()
         lang = user.language_code if user else "en"
 

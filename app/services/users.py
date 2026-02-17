@@ -27,7 +27,7 @@ async def get_or_create(
         username=username,
         first_name=first_name,
         language_code=lang,
-        timezone="UTC",
+        timezone="Europe/Moscow",
     )
     session.add(user)
     await session.flush()
@@ -41,5 +41,6 @@ async def update_language(session: AsyncSession, user: User, language_code: str)
 
 
 async def update_timezone(session: AsyncSession, user: User, timezone: str) -> None:
-    user.timezone = timezone or "UTC"
+    from app.services.user_service import _validate_iana_timezone
+    user.timezone = _validate_iana_timezone(timezone or "Europe/Moscow")
     await session.flush()

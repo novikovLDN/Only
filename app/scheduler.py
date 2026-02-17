@@ -45,11 +45,15 @@ async def run_reminders(bot) -> None:
 
         for ht, habit, user in rows:
             try:
-                user_tz = ZoneInfo(user.timezone or "UTC")
+                user_tz = ZoneInfo(user.timezone or "Europe/Moscow")
             except Exception:
-                user_tz = ZoneInfo("UTC")
+                user_tz = ZoneInfo("Europe/Moscow")
 
             now_local = now_utc.astimezone(user_tz)
+            logger.debug(
+                "TZ DEBUG: user_id=%s tz=%s now_local=%s",
+                user.id, user.timezone, now_local,
+            )
             weekday = now_local.weekday()
             current_time = now_local.time().replace(second=0, microsecond=0)
             today = now_local.date()

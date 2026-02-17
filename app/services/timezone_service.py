@@ -1,14 +1,8 @@
-"""Timezone validation and utilities."""
+"""Timezone validation — 4 zones only."""
 
-from zoneinfo import ZoneInfo
+from app.services.user_service import ALLOWED_TIMEZONES
 
 
 def validate_timezone(tz: str) -> bool:
-    """Validate that timezone is a valid IANA name. Returns True if valid."""
-    if not tz or not (tz := tz.strip()):
-        return False
-    try:
-        ZoneInfo(tz)
-        return True
-    except Exception:
-        return False
+    """Returns True if tz is one of the 4 allowed."""
+    return (tz or "").strip() in ALLOWED_TIMEZONES

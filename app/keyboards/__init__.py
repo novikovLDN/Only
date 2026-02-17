@@ -3,7 +3,7 @@
 from .reminder import reminder_buttons, skip_reasons
 from .main import main_menu
 from .premium import premium_menu
-from .settings import lang_select, settings_menu, timezone_full_keyboard, timezone_keyboard, tz_select
+from .settings import lang_select, settings_menu, timezone_keyboard, tz_select
 from .habits import back_only, habits_list
 from .profile import profile_keyboard
 
@@ -19,7 +19,6 @@ __all__ = [
     "settings_menu",
     "tz_select",
     "timezone_keyboard",
-    "timezone_full_keyboard",
     "back_only",
     "habits_list",
     "profile_keyboard",
