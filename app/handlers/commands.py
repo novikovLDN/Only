@@ -95,8 +95,8 @@ async def cmd_premium(message: Message, state: FSMContext) -> None:
         lang = user.language_code
         is_premium = user_service.is_premium(user)
 
-    btn = t(lang, "btn_premium_extend") if is_premium else t(lang, "btn_premium")
-    await message.answer(btn, reply_markup=premium_menu(lang))
+    text = t(lang, "premium_screen")
+    await message.answer(text, reply_markup=premium_menu(lang))
 
 
 @router.message(Command("referral"))

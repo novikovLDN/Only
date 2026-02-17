@@ -26,18 +26,28 @@ async def cb_premium(cb: CallbackQuery) -> None:
         lang = user.language_code
         is_premium = user_service.is_premium(user)
 
-    btn = t(lang, "btn_premium_extend") if is_premium else t(lang, "btn_premium")
-    await safe_edit_or_send(cb, btn, reply_markup=premium_menu(lang))
+    text = t(lang, "premium_screen")
+    await safe_edit_or_send(cb, text, reply_markup=premium_menu(lang))
 
 
-@router.callback_query(lambda c: c.data and c.data.startswith("pay_"))
+@router.callback_query(lambda c: c.data and (c.data.startswith("pay_") or c.data.startswith("buy_tariff:")))
 async def cb_pay(cb: CallbackQuery) -> None:
     await cb.answer()
-    months = int(cb.data.replace("pay_", ""))
+    # Support pay_1/pay_3 (legacy) and buy_tariff:1M
+    data = cb.data or ""
+    if data.startswith("buy_tariff:"):
+        tariff_code = data.split(":", 1)[1].strip()
+    else:
+        months = data.replace("pay_", "")
+        tariff_code = {"1": "1M", "3": "3M", "6": "6M", "12": "12M"}.get(months, "1M")
     tid = cb.from_user.id if cb.from_user else 0
 
     if not settings.payment_provider_token:
         await cb.message.answer("Payments not configured.")
+        return
+
+    from app.core.premium import PREMIUM_TARIFFS
+    if tariff_code not in PREMIUM_TARIFFS:
         return
 
     sm = get_session_maker()
@@ -50,7 +60,7 @@ async def cb_pay(cb: CallbackQuery) -> None:
             session,
             cb.bot,
             user,
-            months,
+            tariff_code,
             settings.payment_provider_token,
         )
     if not payment:

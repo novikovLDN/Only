@@ -7,27 +7,30 @@ from aiogram.types import LabeledPrice
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.premium import PREMIUM_TARIFFS
 from app.models import Payment, Referral, User
 from app.services.referral_service import give_reward_if_pending
 from app.services.user_service import extend_premium
 
 logger = logging.getLogger(__name__)
 
+# Internal tariff codes for DB (months -> 1m, 3m, 6m, 12m)
 TARIFF_MONTHS = {1: 1, 3: 3, 6: 6, 12: 12}
 TARIFF_NAMES = {1: "1m", 3: "3m", 6: "6m", 12: "12m"}
-TARIFF_PRICES = {1: 19900, 3: 49900, 6: 79900, 12: 129900}
 
 
 async def create_invoice(
     session: AsyncSession,
     bot,
     user: User,
-    months: int,
+    tariff_code: str,
     provider_token: str,
 ) -> Payment | None:
     """Create pending payment, send invoice, save message_id, schedule expire. Returns payment."""
+    tinfo = PREMIUM_TARIFFS.get(tariff_code) or PREMIUM_TARIFFS["1M"]
+    months = tinfo["months"]
+    amount = tinfo["price_rub"] * 100  # kopecks
     tariff = TARIFF_NAMES.get(months, "1m")
-    amount = TARIFF_PRICES.get(months, 19900)
     p = Payment(
         user_id=user.id,
         tariff=tariff,
