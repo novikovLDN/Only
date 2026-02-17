@@ -101,10 +101,11 @@ async def run_daily_metrics_recalc(bot) -> None:
 
 
 async def expire_crypto_payments(bot) -> None:
-    """Every 5 min: cancel expired crypto payments, delete invoice messages."""
+    """Every 5 min: cancel expired crypto payments, notify user, delete invoice messages."""
     from datetime import datetime, timezone
     from sqlalchemy import select
     from app.models import Payment, User
+    from app.texts import t
     try:
         sm = get_session_maker()
         async with sm() as session:
@@ -120,11 +121,14 @@ async def expire_crypto_payments(bot) -> None:
             payments = result.scalars().all()
             for p in payments:
                 p.status = "cancel"
-                if p.invoice_message_id and bot:
+                if bot:
                     try:
                         user = await session.get(User, p.user_id)
                         if user:
-                            await bot.delete_message(chat_id=user.telegram_id, message_id=p.invoice_message_id)
+                            lang = user.language_code if user.language_code in ("ru", "en", "ar") else "ru"
+                            await bot.send_message(chat_id=user.telegram_id, text=t(lang, "crypto_expired"))
+                            if p.invoice_message_id:
+                                await bot.delete_message(chat_id=user.telegram_id, message_id=p.invoice_message_id)
                     except Exception:
                         pass
             await session.commit()

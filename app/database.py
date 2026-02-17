@@ -73,6 +73,7 @@ async def _ensure_indexes(engine) -> None:
     indexes = [
         "CREATE INDEX IF NOT EXISTS idx_users_timezone ON users (timezone)",
         "CREATE INDEX IF NOT EXISTS idx_payments_external_id ON payments (external_payment_id)",
+        "CREATE INDEX IF NOT EXISTS idx_payments_crypto_network ON payments (crypto_network)",
     ]
     async with engine.begin() as conn:
         for sql in indexes:

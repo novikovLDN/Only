@@ -22,8 +22,10 @@ from app.services.user_service import extend_premium
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://api.2328.io/api"
-NETWORK = "TRX-TRC20"
 CURRENCY = "USDT"
+
+ALLOWED_NETWORKS = frozenset(["TRX-TRC20", "BSC-BEP20", "ETH-ERC20", "TON"])
+NETWORK_LABELS = {"TRX-TRC20": "TRC20", "BSC-BEP20": "BEP20", "ETH-ERC20": "ERC20", "TON": "TON"}
 
 
 def _sign_body(body: dict, api_key: str) -> str:
@@ -57,6 +59,7 @@ async def create_crypto_payment(
     session: AsyncSession,
     user: User,
     tariff_code: str,
+    network: str,
     order_id: str,
     url_callback: str,
 ) -> tuple[Payment | None, str]:
@@ -66,6 +69,9 @@ async def create_crypto_payment(
     """
     if not settings.crypto_api_key:
         logger.error("CRYPTO_API_KEY not set")
+        return None, ""
+    if network not in ALLOWED_NETWORKS:
+        logger.warning("Crypto network not allowed: %s", network)
         return None, ""
 
     tinfo = PREMIUM_TARIFFS.get(tariff_code) or PREMIUM_TARIFFS["1M"]
@@ -91,7 +97,7 @@ async def create_crypto_payment(
         "currency": "USD",
         "order_id": order_id,
         "to_currency": CURRENCY,
-        "network": NETWORK,
+        "network": network,
         "url_callback": url_callback,
     }
     sign = _sign_body(body, settings.crypto_api_key)
@@ -127,7 +133,7 @@ async def create_crypto_payment(
     pay_url = result.get("url", "")
 
     payment.external_payment_id = ext_id
-    payment.crypto_network = NETWORK
+    payment.crypto_network = network
     payment.crypto_currency = CURRENCY
     payment.crypto_address = address
     payment.status = "check"

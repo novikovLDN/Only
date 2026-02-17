@@ -89,12 +89,63 @@ async def cb_pay_card(cb: CallbackQuery) -> None:
 
 @router.callback_query(lambda c: c.data and c.data.startswith("pay_crypto:"))
 async def cb_pay_crypto(cb: CallbackQuery) -> None:
-    """Crypto selected → 2328 create payment, send address + pay URL."""
+    """Crypto selected → show network selection."""
     await cb.answer()
     tariff_code = (cb.data or "").split(":", 1)[1].strip()
     tid = cb.from_user.id if cb.from_user else 0
     from app.core.premium import PREMIUM_TARIFFS
     if tariff_code not in PREMIUM_TARIFFS:
+        return
+    if not settings.crypto_api_key or not settings.webhook_base_url:
+        sm = get_session_maker()
+        async with sm() as session:
+            user = await user_service.get_by_telegram_id(session, tid)
+            lang = user.language_code if user else "ru"
+        await cb.message.answer("Crypto payments not configured.", reply_markup=main_menu(lang))
+        return
+    sm = get_session_maker()
+    async with sm() as session:
+        user = await user_service.get_by_telegram_id(session, tid)
+        if not user:
+            return
+        lang = user.language_code
+    from app.keyboards.premium import crypto_network_menu
+    text = t(lang, "crypto_network_select_prompt")
+    await cb.message.edit_text(text, reply_markup=crypto_network_menu(lang, tariff_code))
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("payment_method:"))
+async def cb_payment_method_back(cb: CallbackQuery) -> None:
+    """Back from network selection → payment method."""
+    await cb.answer()
+    tariff_code = (cb.data or "").split(":", 1)[1].strip()
+    tid = cb.from_user.id if cb.from_user else 0
+    sm = get_session_maker()
+    async with sm() as session:
+        user = await user_service.get_by_telegram_id(session, tid)
+        if not user:
+            return
+        lang = user.language_code
+    from app.keyboards.premium import payment_method_menu
+    text = t(lang, "payment_method_prompt")
+    await cb.message.edit_text(text, reply_markup=payment_method_menu(lang, tariff_code))
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("crypto_network_"))
+async def cb_crypto_network(cb: CallbackQuery) -> None:
+    """Network selected → create 2328 payment, send address + pay URL."""
+    await cb.answer()
+    parts = (cb.data or "").split(":")
+    if len(parts) < 2:
+        return
+    network = parts[0].replace("crypto_network_", "")
+    tariff_code = parts[1].strip()
+    tid = cb.from_user.id if cb.from_user else 0
+    from app.core.premium import PREMIUM_TARIFFS
+    if tariff_code not in PREMIUM_TARIFFS:
+        return
+    from app.services.crypto_service import ALLOWED_NETWORKS, create_crypto_payment
+    if network not in ALLOWED_NETWORKS:
         return
     if not settings.crypto_api_key or not settings.webhook_base_url:
         sm = get_session_maker()
@@ -112,11 +163,11 @@ async def cb_pay_crypto(cb: CallbackQuery) -> None:
         if not user:
             return
         lang = user.language_code
-        from app.services.crypto_service import create_crypto_payment
         payment, pay_url = await create_crypto_payment(
             session,
             user,
             tariff_code,
+            network,
             order_id,
             url_callback,
         )
@@ -128,12 +179,13 @@ async def cb_pay_crypto(cb: CallbackQuery) -> None:
         return
     tinfo = PREMIUM_TARIFFS.get(tariff_code) or PREMIUM_TARIFFS["1M"]
     price_usd = round(tinfo["price_rub"] / 100, 2)
-    from app.services.crypto_service import CURRENCY, NETWORK
-    text = t(lang, "crypto_invoice", address=payment.crypto_address, network=NETWORK, amount=price_usd, currency=CURRENCY)
+    from app.services.crypto_service import CURRENCY, NETWORK_LABELS
+    network_label = NETWORK_LABELS.get(network, network)
+    text = t(lang, "crypto_invoice_full", amount=price_usd, currency=CURRENCY, network=network_label, address=payment.crypto_address, network_short=network_label)
     from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
     kb = InlineKeyboardMarkup(inline_keyboard=[])
     if pay_url:
-        pay_btn = "💳 Перейти к оплате" if lang == "ru" else ("Pay now" if lang == "en" else "💳 الانتقال للدفع")
+        pay_btn = t(lang, "crypto_pay_btn")
         kb.inline_keyboard = [[InlineKeyboardButton(text=pay_btn, url=pay_url)]]
     kb.inline_keyboard.append([InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="premium")])
     await cb.message.edit_text(text, reply_markup=kb)
