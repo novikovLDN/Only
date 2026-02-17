@@ -2,9 +2,11 @@
 
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from zoneinfo import ZoneInfo
 
+from app.db import get_session_maker
 from app.models import User
 
 
@@ -60,14 +62,34 @@ async def update_language(session: AsyncSession, user: User, language_code: str)
     await session.flush()
 
 
-async def update_timezone(session: AsyncSession, user: User, timezone: str) -> None:
-    from zoneinfo import available_timezones
+def _validate_iana_timezone(tz: str) -> str:
+    """Validate and return IANA timezone string. Returns 'UTC' if invalid."""
+    tz = (tz or "UTC").strip()
+    try:
+        ZoneInfo(tz)
+        return tz
+    except Exception:
+        return "UTC"
 
-    tz = (timezone or "UTC").strip()
-    if tz not in available_timezones():
-        tz = "UTC"
+
+async def update_timezone(session: AsyncSession, user: User, timezone: str) -> None:
+    """Update user timezone. Validates via ZoneInfo, falls back to UTC if invalid."""
+    tz = _validate_iana_timezone(timezone)
     user.timezone = tz
     await session.flush()
+
+
+async def update_user_timezone_by_id(user_id: int, new_timezone: str) -> bool:
+    """
+    Standalone update by user.id — for validation job.
+    Validates IANA, commits immediately. Returns True if updated.
+    """
+    tz = _validate_iana_timezone(new_timezone)
+    sm = get_session_maker()
+    async with sm() as session:
+        result = await session.execute(update(User).where(User.id == user_id).values(timezone=tz))
+        await session.commit()
+        return result.rowcount > 0
 
 
 async def extend_premium(session: AsyncSession, user: User, months: int) -> None:

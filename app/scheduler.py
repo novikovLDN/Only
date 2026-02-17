@@ -29,9 +29,10 @@ def get_scheduler() -> AsyncIOScheduler:
 
 
 async def run_reminders(bot) -> None:
-    """Every 60s: habit_time JOIN habit JOIN user, match weekday+time in user TZ."""
+    """Every 60s: habit_time JOIN habit JOIN user, match weekday+time in user TZ.
+    Always fetches fresh from DB — no timezone caching."""
     try:
-        now_utc = datetime.now(timezone.utc)
+        now_utc = datetime.now(timezone.utc)  # timezone-aware, no naive datetime
         sm = get_session_maker()
         async with sm() as s:
             result = await s.execute(
@@ -95,6 +96,28 @@ async def run_reminders(bot) -> None:
         logger.exception("Reminders job error: %s", e)
 
 
+async def run_validate_timezones(bot) -> None:
+    """Daily 00:15 UTC: fix users with invalid IANA timezones (reset to UTC)."""
+    try:
+        from zoneinfo import ZoneInfo
+        from app.services import user_service
+        sm = get_session_maker()
+        async with sm() as session:
+            result = await session.execute(select(User))
+            users = result.scalars().all()
+        fixed = 0
+        for user in users:
+            try:
+                ZoneInfo(user.timezone or "UTC")
+            except Exception:
+                await user_service.update_user_timezone_by_id(user.id, "UTC")
+                fixed += 1
+        if fixed:
+            logger.info("Timezone validation: fixed %d users with invalid TZ", fixed)
+    except Exception as e:
+        logger.exception("Timezone validation job failed: %s", e)
+
+
 async def run_daily_metrics_recalc(bot) -> None:
     """Daily 00:05 UTC: recalc user_metrics for all users."""
     try:
@@ -123,6 +146,13 @@ def setup_scheduler(bot) -> None:
         trigger=CronTrigger(hour=0, minute=5),
         args=(bot,),
         id="daily_metrics_recalc",
+        replace_existing=True,
+    )
+    sched.add_job(
+        run_validate_timezones,
+        trigger=CronTrigger(hour=0, minute=15),
+        args=(bot,),
+        id="validate_timezones",
         replace_existing=True,
     )
     sched.start()
