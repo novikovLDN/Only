@@ -11,6 +11,7 @@ def admin_main_keyboard(lang: str) -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text=t(lang, "admin_btn_users"), callback_data="admin_users")],
             [InlineKeyboardButton(text=t(lang, "admin_btn_stats"), callback_data="admin_stats")],
             [InlineKeyboardButton(text=t(lang, "admin_btn_my_habits"), callback_data="admin_habits")],
+            [InlineKeyboardButton(text=t(lang, "admin_btn_delete_user"), callback_data="admin_delete_user")],
         ]
     )
 

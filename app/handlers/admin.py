@@ -11,7 +11,7 @@ from sqlalchemy import func, select, update
 
 from app.config import ADMIN_ID
 from app.db import get_session_maker
-from app.services import user_service
+from app.services import admin_service, user_service
 from app.texts import _normalize_lang, t
 from app.keyboards.admin import (
     admin_back_keyboard,
@@ -29,6 +29,8 @@ router = Router(name="admin")
 class AdminStates(StatesGroup):
     search_user = State()
     grant_duration = State()
+    delete_user_tg_id = State()
+    delete_user_confirm = State()
 
 
 def _is_admin(user_id: int | None) -> bool:
@@ -241,6 +243,77 @@ async def admin_revoke(cb: CallbackQuery) -> None:
         admin_user = await user_service.get_by_telegram_id(session, tid)
         lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
     await cb.message.answer(t(lang, "admin_sub_revoked"))
+
+
+@router.callback_query(F.data == "admin_delete_user")
+async def admin_delete_user_start(cb: CallbackQuery, state: FSMContext) -> None:
+    if not _is_admin(cb.from_user.id if cb.from_user else None):
+        await cb.answer(t("ru", "admin_denied"), show_alert=True)
+        return
+    await cb.answer()
+    tid = cb.from_user.id if cb.from_user else 0
+    sm = get_session_maker()
+    async with sm() as session:
+        admin_user = await user_service.get_by_telegram_id(session, tid)
+        lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
+    await state.set_state(AdminStates.delete_user_tg_id)
+    await cb.message.edit_text(
+        t(lang, "admin_delete_prompt"),
+        reply_markup=admin_back_keyboard(lang),
+    )
+
+
+@router.message(AdminStates.delete_user_tg_id, F.text)
+async def admin_delete_user_tg_id(message: Message, state: FSMContext) -> None:
+    if not _is_admin(message.from_user.id if message.from_user else None):
+        return
+    tid = message.from_user.id if message.from_user else 0
+    sm = get_session_maker()
+    async with sm() as session:
+        admin_user = await user_service.get_by_telegram_id(session, tid)
+        lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
+
+    tg_id_str = (message.text or "").strip()
+    if not tg_id_str.isdigit():
+        await message.answer(t(lang, "admin_delete_id_invalid"))
+        return
+
+    await state.update_data(admin_delete_tg_id=int(tg_id_str))
+    await state.set_state(AdminStates.delete_user_confirm)
+    await message.answer(
+        t(lang, "admin_delete_confirm", tg_id=tg_id_str),
+    )
+
+
+@router.message(AdminStates.delete_user_confirm, F.text)
+async def admin_delete_user_execute(message: Message, state: FSMContext) -> None:
+    if not _is_admin(message.from_user.id if message.from_user else None):
+        return
+    tid = message.from_user.id if message.from_user else 0
+    sm = get_session_maker()
+    async with sm() as session:
+        admin_user = await user_service.get_by_telegram_id(session, tid)
+        lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
+
+    confirm_keyword = t(lang, "admin_delete_confirm_keyword")
+    if (message.text or "").strip() != confirm_keyword:
+        await message.answer(t(lang, "admin_delete_cancelled"))
+        await state.clear()
+        return
+
+    data = await state.get_data()
+    tg_id = data.get("admin_delete_tg_id")
+    await state.clear()
+
+    if not tg_id:
+        await message.answer(t(lang, "admin_delete_not_found"))
+        return
+
+    success = await admin_service.delete_user_full_by_tg_id(tg_id)
+    if success:
+        await message.answer(t(lang, "admin_delete_done"))
+    else:
+        await message.answer(t(lang, "admin_delete_not_found"))
 
 
 @router.callback_query(F.data == "admin_habits")
