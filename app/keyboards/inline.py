@@ -193,10 +193,8 @@ def buy_subscription_only(t) -> InlineKeyboardMarkup:
     ])
 
 
-def progress_menu(t, has_missed: bool) -> InlineKeyboardMarkup:
+def progress_menu(t, has_missed: bool = False) -> InlineKeyboardMarkup:
     rows = []
-    if has_missed:
-        rows.append([InlineKeyboardButton(text=t("progress.my_missed"), callback_data="profile_missed")])
     rows.append([InlineKeyboardButton(text=t("btn.back"), callback_data="settings_profile")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 

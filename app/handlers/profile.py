@@ -186,18 +186,3 @@ async def cb_ach_lock(cb: CallbackQuery) -> None:
         prefix = t(lang, "ach_locked_prefix")
         msg = f"{prefix} {desc}"
     await cb.answer(msg, show_alert=True)
-
-
-@router.callback_query(lambda c: c.data == "profile_missed")
-async def cb_profile_missed(cb: CallbackQuery) -> None:
-    await cb.answer()
-    tid = cb.from_user.id if cb.from_user else 0
-
-    sm = get_session_maker()
-    async with sm() as session:
-        user = await user_service.get_by_telegram_id(session, tid)
-        if not user:
-            return
-        lang = user.language_code
-
-    await safe_edit_or_send(cb, t(lang, "profile_skipped"), reply_markup=back_only(lang, "profile"))
