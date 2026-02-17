@@ -29,7 +29,7 @@ async def cb_habit_done(cb: CallbackQuery) -> None:
         today = date.today()
         if await habit_log_service.has_log_today(session, user.id, habit_id, today):
             return
-        lang = user.language_code if user.language_code in ("ru", "en") else "ru"
+        lang = user.language_code if user.language_code in ("ru", "en", "ar") else "ru"
         await rem_svc.reset_usage_if_needed(session, user.id, lang)
         used = await rem_svc.get_used_indices(session, user.id)
         _, idx = rem_svc.get_phrase(lang, used)

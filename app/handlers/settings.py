@@ -93,7 +93,14 @@ async def cb_settings_lang(cb: CallbackQuery) -> None:
 @router.callback_query(lambda c: c.data and c.data.startswith("lang_") and "_done" in (c.data or ""))
 async def cb_lang_select(cb: CallbackQuery) -> None:
     await cb.answer()
-    lang = "ru" if "ru" in (cb.data or "") else "en"
+    data = cb.data or ""
+    lang = "ru"
+    if "ru" in data:
+        lang = "ru"
+    elif "en" in data:
+        lang = "en"
+    elif "ar" in data:
+        lang = "ar"
     tid = cb.from_user.id if cb.from_user else 0
 
     sm = get_session_maker()
@@ -111,5 +118,5 @@ async def cb_lang_select(cb: CallbackQuery) -> None:
             )
             await session.commit()
 
-    confirm_key = "lang_updated_ru" if lang == "ru" else "lang_updated_en"
+    confirm_key = f"lang_updated_{lang}"
     await cb.message.edit_text(t(lang, confirm_key), reply_markup=settings_menu(lang))

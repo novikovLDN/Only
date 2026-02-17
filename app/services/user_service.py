@@ -35,7 +35,7 @@ async def get_or_create(
         return user, False
 
     lang = (telegram_language_code or "ru")[:2].lower() if telegram_language_code else "ru"
-    if lang not in ("ru", "en"):
+    if lang not in ("ru", "en", "ar"):
         lang = "ru"
 
     user = User(
@@ -57,7 +57,7 @@ async def get_by_telegram_id(session: AsyncSession, telegram_id: int) -> User | 
 
 
 async def update_language(session: AsyncSession, user: User, language_code: str) -> None:
-    user.language_code = "ru" if language_code not in ("ru", "en") else language_code
+    user.language_code = language_code if language_code in ("ru", "en", "ar") else "ru"
     await session.flush()
 
 

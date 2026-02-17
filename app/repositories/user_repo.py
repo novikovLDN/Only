@@ -29,7 +29,7 @@ class UserRepository:
         invited_by_id: int | None = None,
     ) -> User:
         """Create user. NEVER pass id — DB generates via IDENTITY."""
-        lang = language if language in ("ru", "en") else "ru"
+        lang = language if language in ("ru", "en", "ar") else "ru"
         user = User(
             telegram_id=telegram_id,
             username=username,
@@ -57,7 +57,7 @@ class UserRepository:
         if user:
             return user, False
 
-        lang = language if language in ("ru", "en") else "ru"
+        lang = language if language in ("ru", "en", "ar") else "ru"
         user = User(
             telegram_id=telegram_id,
             username=username,
@@ -79,7 +79,7 @@ class UserRepository:
         return user, True
 
     async def update_language(self, user: User, language: str) -> None:
-        user.language = language if language in ("ru", "en") else "ru"
+        user.language = language if language in ("ru", "en", "ar") else "ru"
         await self.session.flush()
 
     async def extend_subscription(self, user: User, days: int) -> None:

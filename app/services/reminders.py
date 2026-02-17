@@ -16,9 +16,18 @@ MOTIVATION_EN = [
     "Well done!", "Keep it up!", "You're doing it!", "Great step!", "Great job!",
 ] * 30
 
+MOTIVATION_AR = [
+    "أحسنت!", "واصل التقدم!", "أنت تنجز!", "خطوة رائعة!", "عمل ممتاز!",
+] * 30
+
 
 def get_phrase(lang: str, used_indices: set[int]) -> tuple[str, int]:
-    phrases = MOTIVATION_RU if lang == "ru" else MOTIVATION_EN
+    if lang == "ar":
+        phrases = MOTIVATION_AR
+    elif lang == "en":
+        phrases = MOTIVATION_EN
+    else:
+        phrases = MOTIVATION_RU
     available = [i for i in range(len(phrases)) if i not in used_indices]
     if not available:
         idx = random.randint(0, len(phrases) - 1)
@@ -43,7 +52,7 @@ async def get_used_indices(session: AsyncSession, user_id: int) -> set[int]:
 
 
 async def reset_usage_if_needed(session: AsyncSession, user_id: int, lang: str) -> None:
-    phrases = MOTIVATION_RU if lang == "ru" else MOTIVATION_EN
+    phrases = MOTIVATION_AR if lang == "ar" else (MOTIVATION_EN if lang == "en" else MOTIVATION_RU)
     used = await get_used_indices(session, user_id)
     if len(used) >= len(phrases):
         from sqlalchemy import delete

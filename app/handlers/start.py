@@ -19,7 +19,12 @@ router = Router(name="start")
 
 
 def _lang_from_callback(data: str) -> str:
-    return "ru" if "ru" in (data or "") else "en"
+    d = data or ""
+    if "ar" in d:
+        return "ar"
+    if "en" in d:
+        return "en"
+    return "ru"
 
 
 @router.message(CommandStart())
@@ -63,7 +68,7 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
             await session.commit()
         lang = user.language_code
         is_premium = user_service.is_premium(user)
-        if created or user.language_code not in ("ru", "en"):
+        if created or user.language_code not in ("ru", "en", "ar"):
             await message.answer(t("ru", "lang_prompt"), reply_markup=lang_select(next_step="tz"))
             return
     await message.answer(

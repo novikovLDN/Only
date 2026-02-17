@@ -117,7 +117,7 @@ async def successful_payment(message: Message) -> None:
             referrer = await give_reward_if_pending(session, referral)
             if referrer:
                 try:
-                    lang = referrer.language_code if referrer.language_code in ("ru", "en") else "ru"
+                    lang = referrer.language_code if referrer.language_code in ("ru", "en", "ar") else "ru"
                     await message.bot.send_message(
                         chat_id=referrer.telegram_id,
                         text=t(lang, "referral_bonus_notify"),

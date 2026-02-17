@@ -18,6 +18,7 @@ def language_select() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang_ru")],
         [InlineKeyboardButton(text="🇺🇸 English", callback_data="lang_en")],
+        [InlineKeyboardButton(text="🇸🇦 العربية", callback_data="lang_ar")],
     ])
 
 
@@ -142,6 +143,7 @@ def language_select_with_back(t, back_callback: str = "back_main", return_to: st
     rows = [
         [InlineKeyboardButton(text="🇷🇺 Русский", callback_data=f"lang_ru{suffix}")],
         [InlineKeyboardButton(text="🇺🇸 English", callback_data=f"lang_en{suffix}")],
+        [InlineKeyboardButton(text="🇸🇦 العربية", callback_data=f"lang_ar{suffix}")],
         [InlineKeyboardButton(text=t("btn.back"), callback_data=back_callback)],
     ]
     return InlineKeyboardMarkup(inline_keyboard=rows)

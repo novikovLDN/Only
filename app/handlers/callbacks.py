@@ -30,7 +30,8 @@ async def cb_back_main(cb: CallbackQuery, state: FSMContext) -> None:
 @router.callback_query(lambda c: c.data and "lang_" in (c.data or "") and "_main" in (c.data or ""))
 async def cb_lang(cb: CallbackQuery) -> None:
     await cb.answer()
-    lang = "ru" if "lang_ru" in (cb.data or "") else "en"
+    d = cb.data or ""
+    lang = "ar" if "lang_ar" in d else ("en" if "lang_en" in d else "ru")
     tid = cb.from_user.id if cb.from_user else 0
 
     sm = get_session_maker()

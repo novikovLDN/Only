@@ -147,10 +147,12 @@ async def build_achievements_header(session: AsyncSession, user_id: int, lang: s
     """Build header with progress for achievements screen. RU/EN."""
     unlocked, percent = await get_achievement_progress(session, user_id)
     bar = build_achievements_progress_bar(percent)
-    lang = "en" if (lang or "").lower() == "en" else "ru"
-    if lang == "ru":
-        return f"🏆 Достижения\n\nПрогресс: {unlocked}/50\n{bar}\n\n"
-    return f"🏆 Achievements\n\nProgress: {unlocked}/50\n{bar}\n\n"
+    code = (lang or "ru")[:2].lower()
+    if code == "ar":
+        return f"🏆 الإنجازات\n\nالتقدم: {unlocked}/50\n{bar}\n\n"
+    if code == "en":
+        return f"🏆 Achievements\n\nProgress: {unlocked}/50\n{bar}\n\n"
+    return f"🏆 Достижения\n\nПрогресс: {unlocked}/50\n{bar}\n\n"
 
 
 def set_achievements_screen(telegram_id: int, chat_id: int, message_id: int) -> None:
@@ -176,7 +178,7 @@ async def refresh_achievements_screen_if_open(
         return
     chat_id, message_id = entry
     lang = (user.language_code or "ru")[:2].lower() if user else "ru"
-    lang = "en" if lang == "en" else "ru"
+    lang = "ar" if lang == "ar" else ("en" if lang == "en" else "ru")
     try:
         text = await build_achievements_header(session, user_id, lang)
         ach_list = await get_achievements_with_status(session, user_id, lang)
@@ -226,9 +228,9 @@ async def check_achievements(
                 logger.info("Unlocked achievement %s for user_id=%s", code, user_id)
                 if bot and telegram_id:
                     lang = (user.language_code or "ru")[:2].lower()
-                    lang = "en" if lang == "en" else "ru"
-                    msg = ach.unlock_msg_ru if lang == "ru" else ach.unlock_msg_en
-                    name = ach.name_ru if lang == "ru" else ach.name_en
+                    lang = "ar" if lang == "ar" else ("en" if lang == "en" else "ru")
+                    msg = ach.unlock_msg_ru if lang == "ru" else ach.unlock_msg_en  # ar uses en
+                    name = ach.name_ru if lang == "ru" else ach.name_en  # ar uses en
                     try:
                         await bot.send_message(
                             telegram_id,
@@ -257,9 +259,10 @@ async def get_achievements_with_status(
     result = await session.execute(select(Achievement).order_by(Achievement.id))
     all_ach = result.scalars().unique().all()
     unlocked = await _get_unlocked_ids(session, user_id)
-    lang = "en" if (lang or "").lower() == "en" else "ru"
+    code = (lang or "ru")[:2].lower()
+    code = "ar" if code == "ar" else ("en" if code == "en" else "ru")
     return [
-        (a.id, a.name_ru if lang == "ru" else a.name_en, a.id in unlocked)
+        (a.id, a.name_ru if code == "ru" else a.name_en, a.id in unlocked)  # ar uses en
         for a in all_ach
     ]
 

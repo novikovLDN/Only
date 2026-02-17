@@ -22,6 +22,13 @@ LEVEL_PHRASES = {
         "🏆 Progress is visible!",
         "⚡ System upgrade!",
     ],
+    "ar": [
+        "🔥 أنت تتقدّم!",
+        "🚀 مستوى جديد — نسخة جديدة منك!",
+        "💎 واصل التقدم!",
+        "🏆 التقدم واضح!",
+        "⚡ النظام يعمل!",
+    ],
 }
 
 
@@ -41,7 +48,7 @@ async def add_xp(user, session, bot: Bot) -> None:
             user.xp = 0
 
         lang = (user.language_code or "ru")[:2].lower()
-        lang = "en" if lang == "en" else "ru"
+        lang = "ar" if lang == "ar" else ("en" if lang == "en" else "ru")
         phrases = LEVEL_PHRASES[lang]
         phrase = random.choice(phrases)
         level_text = t(lang, "level_up") + f" {user.level}!\n\n{phrase}"

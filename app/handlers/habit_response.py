@@ -60,7 +60,7 @@ async def cb_habit_decline_back(cb: CallbackQuery, user, t, session) -> None:
     habit = await habit_repo.get_by_id(pending.habit_id)
     if not habit:
         return
-    lang = user.language if user.language in ("ru", "en") else "ru"
+    lang = user.language if user.language in ("ru", "en", "ar") else "ru"
     motivation_repo = MotivationRepository(session)
     motivation_svc = MotivationService(motivation_repo)
     phrase = await motivation_svc.get_random_phrase(lang)

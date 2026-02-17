@@ -169,6 +169,90 @@ TRANSLATIONS = {
         "progress.empty": "No data for this month.",
         "referral_success": "🎉 Congratulations!\n\nYou invited a friend and received a gift — +7 days of subscription.\n\nThank you for being with us ❤️",
     },
+    "ar": {
+        "lang.select_prompt": "🌍 الرجاء اختيار اللغة",
+        "main.greeting": "مرحباً، {first_name} 👋",
+        "main.subtitle": "أنا هنا لمساعدتك على بناء عادات قوية وتذكيرك بها في الوقت المناسب.",
+        "main.action_prompt": "اختر الإجراء أدناه 👇",
+        "btn.add_habit": "➕ إضافة عادة",
+        "btn.edit_habits": "✏️ تعديل العادات",
+        "btn.subscribe": "💎 الاشتراك",
+        "btn.loyalty": "🎁 برنامج الولاء",
+        "btn.settings": "⚙️ الإعدادات",
+        "btn.back": "🔙 رجوع",
+        "btn.done": "✅ تم",
+        "btn.next": "▶️ التالي",
+        "btn.prev": "◀️ السابق",
+        "btn.select_from_list": "📋 اختر من القائمة",
+        "btn.add_custom": "✍️ إضافة خاصة",
+        "btn.support": "🛟 الدعم",
+        "preset.select": "اختر عادة من القائمة أو أضف عادتك",
+        "preset.choose_title": "✨ اختر عاداتك",
+        "preset.choose_subtitle": "حدد ما تريد تتبعه.\nيمكنك تغيير ذلك في أي وقت.",
+        "preset.select_at_least_one": "اختر عادة واحدة على الأقل",
+        "preset.nav_back": "⬅️ رجوع",
+        "preset.nav_next": "➡️ التالي",
+        "preset.page_prev": "◀️",
+        "preset.page_next": "▶️",
+        "preset.select_weekdays": "اختر أيام الأسبوع",
+        "preset.select_time": "اختر الوقت",
+        "preset.habit_saved": "تم حفظ العادة «{title}».",
+        "preset.no_habits": "ليس لديك عادات بعد.\nأضف أول عادة 👇",
+        "preset.enter_custom": "أدخل اسم العادة (حتى 100 حرف)",
+        "preset.custom_invalid": "يجب أن يكون الاسم 1–100 حرف",
+        "preset.select_day": "اختر يوماً واحداً على الأقل",
+        "preset.select_time_at_least": "اختر وقتاً واحداً على الأقل",
+        "premium.block": "✨ هذه الميزة متاحة في Premium.\n\nافتح الوصول الكامل للعادات والإعدادات المتقدمة.",
+        "premium.buy": "💳 شراء الاشتراك",
+        "settings.title": "الإعدادات",
+        "settings.my_profile": "👤 ملفي الشخصي",
+        "settings.support": "الدعم",
+        "settings.change_language": "🌐 تغيير اللغة",
+        "settings.support_contact": "تواصل: @support",
+        "profile.title": "الملف الشخصي",
+        "profile.registration": "التسجيل: {date}",
+        "profile.invited": "📊 الأصدقاء المدعوون: {count}",
+        "profile.subscription_until": "🗓 الاشتراك حتى: {date}",
+        "profile.no_subscription": "لا يوجد اشتراك",
+        "profile.buy": "💳 شراء الاشتراك",
+        "loyalty.referral_link": "رابط الإحالة:",
+        "loyalty.invited_count": "📊 الأصدقاء المدعوون: {count}",
+        "loyalty.share": "🔗 مشاركة الرابط",
+        "loyalty.details": "ℹ️ التفاصيل",
+        "loyalty.info": "ادعُ صديقاً — واحصل على +7 أيام اشتراك لكل واحد.",
+        "loyalty.your_invites": "🎁 دعواتك",
+        "subscription.choose_tariff": "اختر الباقة",
+        "subscription.choose_payment": "طريقة الدفع",
+        "subscription.cryptobot": "💎 CryptoBot",
+        "subscription.bank_card": "💳 البطاقة",
+        "subscription.tariff_1m": "📅 شهر واحد – {price}₽",
+        "subscription.tariff_3m": "📦 3 أشهر – {price}₽",
+        "subscription.tariff_6m": "🚀 6 أشهر – {price}₽",
+        "subscription.tariff_12m": "🏆 12 شهراً – {price}₽",
+        "habit.edit_title": "تعديل العادات",
+        "habit.days_label": "الأيام",
+        "habit.times_label": "الوقت",
+        "habit.change_time": "تغيير الوقت",
+        "habit.delete": "حذف العادة",
+        "habit.deleted": "تم حذف العادة.",
+        "reminder": "⏰ وقت: {habit_name}",
+        "btn.confirm": "🎉 تأكيد",
+        "btn.decline": "❌ تخطي",
+        "decline.are_you_sure": "هل أنت متأكد؟ لماذا؟",
+        "decline.reason_tired": "😴 أنا متعب",
+        "decline.reason_sick": "🤒 أنا مريض",
+        "decline.reason_no_want": "🙅 لا أريد",
+        "decline.back": "⬅ رجوع",
+        "decline.understood": "فهمت. غداً فرصة جديدة 💪",
+        "progress.title": "📅 الشهر: {month}",
+        "progress.days_done": "{count} / {total} أيام منجزة",
+        "progress.no_skips": "🔥 بدون تخطي!",
+        "progress.has_skips": "بعض الأيام تم تخطيها.",
+        "progress.btn": "📊 التقدم",
+        "progress.my_missed": "📋 عاداتي المتخطاة",
+        "progress.empty": "لا توجد بيانات لهذا الشهر.",
+        "referral_success": "🎉 تهانينا!\n\nلقد دعوت صديقاً وحصلت على هدية — +7 أيام اشتراك.\n\nشكراً لكونك معنا ❤️",
+    },
 }
 
 HABIT_PRESETS_RU = [
@@ -192,6 +276,29 @@ HABIT_PRESETS_RU = [
     "Позвонить родителям",
     "Копить деньги",
     "Планировать день",
+]
+
+HABIT_PRESETS_AR = [
+    "شرب المزيد من الماء",
+    "الرياضة",
+    "قراءة الكتب",
+    "التأمل",
+    "النوم قبل 23:00",
+    "اليوميات",
+    "10000 خطوة",
+    "التمدد",
+    "تعلم الإنجليزية",
+    "بدون سكر",
+    "بدون وسائل التواصل",
+    "الاستيقاظ مبكراً",
+    "الفيتامينات",
+    "الدش البارد",
+    "الشكر",
+    "الدراسة",
+    "التغذية الصحية",
+    "الاتصال بالأهل",
+    "توفير المال",
+    "تخطيط اليوم",
 ]
 
 HABIT_PRESETS_EN = [
@@ -219,6 +326,7 @@ HABIT_PRESETS_EN = [
 
 WEEKDAYS_RU = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
 WEEKDAYS_EN = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+WEEKDAYS_AR = ["إثنين", "ثلاثاء", "أربعاء", "خميس", "جمعة", "سبت", "أحد"]
 
 TIME_EMOJI = [
     "🕛", "🕐", "🕑", "🕒", "🕓", "🕔", "🕕", "🕖", "🕗", "🕘", "🕙", "🕚",
@@ -227,23 +335,36 @@ TIME_EMOJI = [
 
 
 def t(lang: str, key: str, **kwargs) -> str:
-    texts = TRANSLATIONS.get(lang or "en", TRANSLATIONS["en"])
-    s = texts.get(key, key)
+    lang = (lang or "en")[:2].lower()
+    if lang not in ("ru", "en", "ar"):
+        lang = "en"
+    texts = TRANSLATIONS.get(lang, TRANSLATIONS["ru"])
+    s = texts.get(key, TRANSLATIONS["ru"].get(key, key))
     return s.format(**kwargs) if kwargs else s
 
 
 def get_presets(lang: str) -> list[str]:
-    return HABIT_PRESETS_RU if lang == "ru" else HABIT_PRESETS_EN
+    if (lang or "")[:2].lower() == "ar":
+        return HABIT_PRESETS_AR
+    if (lang or "")[:2].lower() == "en":
+        return HABIT_PRESETS_EN
+    return HABIT_PRESETS_RU
 
 
 def get_weekdays(lang: str) -> list[str]:
-    return WEEKDAYS_RU if lang == "ru" else WEEKDAYS_EN
+    if (lang or "")[:2].lower() == "ar":
+        return WEEKDAYS_AR
+    if (lang or "")[:2].lower() == "en":
+        return WEEKDAYS_EN
+    return WEEKDAYS_RU
 
 
 MONTH_NAMES_RU = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"]
 MONTH_NAMES_EN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+MONTH_NAMES_AR = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
 MONTH_SHORT_RU = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"]
 MONTH_SHORT_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+MONTH_SHORT_AR = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
 
 
 DECLINE_REASON_KEYS = {"decline.reason_tired": "tired", "decline.reason_sick": "sick", "decline.reason_no_want": "no_want"}
@@ -257,20 +378,31 @@ def reason_to_text(lang: str, reason: str) -> str:
 
 
 def text_to_decline_reason(text: str) -> str | None:
-    """Map button text to reason code. Check both languages."""
+    """Map button text to reason code. Check all languages."""
     for key, reason in DECLINE_REASON_KEYS.items():
-        if TRANSLATIONS.get("ru", {}).get(key) == text or TRANSLATIONS.get("en", {}).get(key) == text:
-            return reason
+        for loc in ("ru", "en", "ar"):
+            if TRANSLATIONS.get(loc, {}).get(key) == text:
+                return reason
     return None
 
 
 def get_month_name(lang: str, month: int) -> str:
-    names = MONTH_NAMES_RU if lang == "ru" else MONTH_NAMES_EN
+    if (lang or "")[:2].lower() == "ar":
+        names = MONTH_NAMES_AR
+    elif (lang or "")[:2].lower() == "en":
+        names = MONTH_NAMES_EN
+    else:
+        names = MONTH_NAMES_RU
     return names[month - 1] if 1 <= month <= 12 else str(month)
 
 
 def format_date_short(lang: str, d) -> str:
-    shorts = MONTH_SHORT_RU if lang == "ru" else MONTH_SHORT_EN
+    if (lang or "")[:2].lower() == "ar":
+        shorts = MONTH_SHORT_AR
+    elif (lang or "")[:2].lower() == "en":
+        shorts = MONTH_SHORT_EN
+    else:
+        shorts = MONTH_SHORT_RU
     return f"{d.day} {shorts[d.month - 1]}"
 
 

@@ -130,7 +130,7 @@ async def record_payment(
             if referrer and bot:
                 try:
                     from app.texts import t
-                    lang = referrer.language_code if referrer.language_code in ("ru", "en") else "ru"
+                    lang = referrer.language_code if referrer.language_code in ("ru", "en", "ar") else "ru"
                     await bot.send_message(
                         chat_id=referrer.telegram_id,
                         text=t(lang, "referral_bonus_notify"),

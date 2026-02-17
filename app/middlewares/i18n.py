@@ -10,18 +10,18 @@ from app.utils.i18n import get_presets, get_weekdays, t as i18n_t
 
 logger = logging.getLogger(__name__)
 
-VALID_LANGUAGES = frozenset(("ru", "en"))
+VALID_LANGUAGES = frozenset(("ru", "en", "ar"))
 
 
 def _resolve_lang(user: Any) -> str:
-    """user.language is single source of truth. Invalid → 'ru' + log."""
-    if not user or not hasattr(user, "language"):
+    """user.language or user.language_code is source of truth. Invalid → 'ru' + log."""
+    if not user:
         return "ru"
-    raw = getattr(user, "language", None)
+    raw = getattr(user, "language", None) or getattr(user, "language_code", None)
     if raw in VALID_LANGUAGES:
         return raw
     if raw is not None and raw not in VALID_LANGUAGES:
-        logger.critical("Invalid user.language=%r, forcing 'ru'", raw)
+        logger.critical("Invalid user language=%r, forcing 'ru'", raw)
     return "ru"
 
 

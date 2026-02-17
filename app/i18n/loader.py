@@ -9,8 +9,14 @@ from app.utils.i18n import (
 
 
 def get_texts(lang: str | None) -> dict:
-    return TRANSLATIONS.get(lang or "en", TRANSLATIONS["en"])
+    code = (lang or "en")[:2].lower()
+    if code not in ("ru", "en", "ar"):
+        code = "en"
+    return TRANSLATIONS.get(code, TRANSLATIONS["ru"])
 
 
 def t(key: str, lang: str | None, **kw) -> str:
-    return t_fn(lang or "en", key, **kw)
+    code = (lang or "en")[:2].lower()
+    if code not in ("ru", "en", "ar"):
+        code = "en"
+    return t_fn(code, key, **kw)

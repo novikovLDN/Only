@@ -33,12 +33,16 @@ def timezone_keyboard(active_tz: str, lang: str = "ru", callback_prefix: str = "
 
 
 def lang_select(next_step: str = "tz", lang: str = "ru", back_callback: str | None = None) -> InlineKeyboardMarkup:
-    lang = "en" if (lang or "").lower() == "en" else "ru"
+    lang = (lang or "ru")[:2].lower()
+    if lang not in ("ru", "en", "ar"):
+        lang = "ru"
     ru_label = "🟢 🇷🇺 Русский" if lang == "ru" else "🇷🇺 Русский"
     en_label = "🟢 🇬🇧 English" if lang == "en" else "🇬🇧 English"
+    ar_label = "🟢 🇸🇦 العربية" if lang == "ar" else "🇸🇦 العربية"
     rows = [
         [InlineKeyboardButton(text=ru_label, callback_data=f"lang_ru_{next_step}")],
         [InlineKeyboardButton(text=en_label, callback_data=f"lang_en_{next_step}")],
+        [InlineKeyboardButton(text=ar_label, callback_data=f"lang_ar_{next_step}")],
     ]
     if back_callback:
         rows.append([InlineKeyboardButton(text=t(lang, "btn_back"), callback_data=back_callback)])
