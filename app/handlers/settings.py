@@ -1,5 +1,6 @@
 """Settings — language, timezone (4 TZ only)."""
 
+import asyncio
 import logging
 
 from aiogram import Router
@@ -10,6 +11,7 @@ from app.keyboards.settings import TIMEZONES
 from app.keyboards import settings_menu, lang_select, timezone_keyboard
 from app.services import achievement_service, user_service, timezone_service
 from app.texts import t
+from app.utils.message_cleanup import delete_later
 
 logger = logging.getLogger(__name__)
 router = Router(name="settings")
@@ -71,7 +73,8 @@ async def cb_tz_set(cb: CallbackQuery) -> None:
     await cb.message.edit_reply_markup(reply_markup=timezone_keyboard(active_tz, lang))
     await cb.answer(t(lang, "tz_updated"), show_alert=True)
     label = TIMEZONES.get(new_tz, new_tz)
-    await cb.message.answer(t(lang, "tz_changed_msg", label=label))
+    msg = await cb.message.answer(t(lang, "tz_changed_msg", label=label))
+    asyncio.create_task(delete_later(cb.bot, msg.chat.id, msg.message_id, delay=60))
 
 
 @router.callback_query(lambda c: c.data == "settings_lang")
