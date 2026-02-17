@@ -93,9 +93,11 @@ def timezone_full_keyboard(current_tz: str, page: int, lang: str) -> InlineKeybo
 def lang_select(next_step: str = "tz", lang: str = "ru", back_callback: str | None = None) -> InlineKeyboardMarkup:
     """Language selection. If back_callback is set, add Back button (e.g. for settings)."""
     lang = "en" if (lang or "").lower() == "en" else "ru"
+    ru_label = "🟢 🇷🇺 Русский" if lang == "ru" else "🇷🇺 Русский"
+    en_label = "🟢 🇬🇧 English" if lang == "en" else "🇬🇧 English"
     rows = [
-        [InlineKeyboardButton(text="🇷🇺 Русский", callback_data=f"lang_ru_{next_step}")],
-        [InlineKeyboardButton(text="🇬🇧 English", callback_data=f"lang_en_{next_step}")],
+        [InlineKeyboardButton(text=ru_label, callback_data=f"lang_ru_{next_step}")],
+        [InlineKeyboardButton(text=en_label, callback_data=f"lang_en_{next_step}")],
     ]
     if back_callback:
         rows.append([InlineKeyboardButton(text=t(lang, "btn_back"), callback_data=back_callback)])
