@@ -11,6 +11,7 @@ from app.keyboards import back_only
 from app.keyboards.achievements import achievements_keyboard
 from app.keyboards.profile import profile_keyboard
 from app.utils.progress import build_progress_bar
+from app.utils.timezone_flags import get_tz_display
 from app.utils.safe_edit import safe_edit_or_send
 from app.services import achievement_service, habit_log_service, referral_service, user_service
 from app.texts import t
@@ -31,6 +32,8 @@ def _build_profile_caption(user, lang: str, ref_count: int, fname: str = "") -> 
     lang = "en" if (lang or "").lower() == "en" else "ru"
     name = fname or getattr(user, "first_name", None) or "there"
 
+    flag, tz_label = get_tz_display(getattr(user, "timezone", None) or "Europe/Moscow")
+
     if user.premium_until:
         pu = user.premium_until
         if pu.tzinfo is None:
@@ -49,13 +52,15 @@ def _build_profile_caption(user, lang: str, ref_count: int, fname: str = "") -> 
 
     if lang == "ru":
         return (
-            f"👋 Рады тебя видеть, {name}!\n\n"
+            f"👋 Рады тебя видеть, {name} !\n\n"
+            f"{flag} {tz_label}\n\n"
             f"💎 Подписка активна до: {premium_date}\n"
             f"🤝 Приглашено друзей: {ref_count}\n\n"
             f"⭐ Ваш уровень: {level}\n{progress}"
         )
     return (
-        f"👋 Glad to see you, {name}!\n\n"
+        f"👋 Glad to see you, {name} !\n\n"
+        f"{flag} {tz_label}\n\n"
         f"💎 Premium active until: {premium_date}\n"
         f"🤝 Friends invited: {ref_count}\n\n"
         f"⭐ Your level: {level}\n{progress}"
