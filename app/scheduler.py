@@ -29,10 +29,10 @@ def get_scheduler() -> AsyncIOScheduler:
 
 
 async def run_reminders(bot) -> None:
-    """Every 60s: habit_time JOIN habit JOIN user, match weekday+time in user TZ.
-    Always fetches fresh from DB — no timezone caching."""
+    """Every 60s: fresh DB fetch, timezone-aware conversion, direct weekday+time match.
+    No caching — DB is single source of truth."""
     try:
-        now_utc = datetime.now(timezone.utc)  # timezone-aware, no naive datetime
+        now_utc = datetime.now(timezone.utc)
         sm = get_session_maker()
         async with sm() as s:
             result = await s.execute(
@@ -43,31 +43,18 @@ async def run_reminders(bot) -> None:
             )
             rows = result.all()
 
-        tz_cache = {}
         for ht, habit, user in rows:
-            tz_name = user.timezone or "UTC"
             try:
-                tz = tz_cache.get(tz_name) or ZoneInfo(tz_name)
-                tz_cache[tz_name] = tz
+                user_tz = ZoneInfo(user.timezone or "UTC")
             except Exception:
-                tz = ZoneInfo("UTC")
+                user_tz = ZoneInfo("UTC")
 
-            now_user = now_utc.astimezone(tz)
-            today = now_user.date()
-            if now_user.weekday() != ht.weekday:
-                continue
+            now_local = now_utc.astimezone(user_tz)
+            weekday = now_local.weekday()
+            current_time = now_local.time().replace(second=0, microsecond=0)
+            today = now_local.date()
 
-            t_val = ht.time
-            if hasattr(t_val, "hour"):
-                h, m = t_val.hour, t_val.minute
-            else:
-                try:
-                    parts = str(t_val).split(":")
-                    h, m = int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
-                except (ValueError, IndexError):
-                    continue
-
-            if now_user.hour != h or now_user.minute != m:
+            if ht.weekday != weekday or ht.time != current_time:
                 continue
 
             async with sm() as session:
@@ -94,28 +81,6 @@ async def run_reminders(bot) -> None:
 
     except Exception as e:
         logger.exception("Reminders job error: %s", e)
-
-
-async def run_validate_timezones(bot) -> None:
-    """Daily 00:15 UTC: fix users with invalid IANA timezones (reset to UTC)."""
-    try:
-        from zoneinfo import ZoneInfo
-        from app.services import user_service
-        sm = get_session_maker()
-        async with sm() as session:
-            result = await session.execute(select(User))
-            users = result.scalars().all()
-        fixed = 0
-        for user in users:
-            try:
-                ZoneInfo(user.timezone or "UTC")
-            except Exception:
-                await user_service.update_user_timezone_by_id(user.id, "UTC")
-                fixed += 1
-        if fixed:
-            logger.info("Timezone validation: fixed %d users with invalid TZ", fixed)
-    except Exception as e:
-        logger.exception("Timezone validation job failed: %s", e)
 
 
 async def run_daily_metrics_recalc(bot) -> None:
@@ -146,13 +111,6 @@ def setup_scheduler(bot) -> None:
         trigger=CronTrigger(hour=0, minute=5),
         args=(bot,),
         id="daily_metrics_recalc",
-        replace_existing=True,
-    )
-    sched.add_job(
-        run_validate_timezones,
-        trigger=CronTrigger(hour=0, minute=15),
-        args=(bot,),
-        id="validate_timezones",
         replace_existing=True,
     )
     sched.start()

@@ -1,7 +1,5 @@
 """Settings — language, timezone."""
 
-import logging
-
 from aiogram import Router
 from aiogram.types import CallbackQuery
 
@@ -10,7 +8,6 @@ from app.keyboards import main_menu, settings_menu, lang_select, timezone_full_k
 from app.services import achievement_service, user_service, timezone_service
 from app.texts import t
 
-logger = logging.getLogger(__name__)
 router = Router(name="settings")
 
 
@@ -90,51 +87,35 @@ async def cb_tz_set(cb: CallbackQuery) -> None:
 
     sm = get_session_maker()
     async with sm() as session:
-        from sqlalchemy import select
-        from app.models import User
-
         user = await user_service.get_by_telegram_id(session, tid)
         if not user:
             await cb.answer()
             return
-        await user_service.update_timezone(session, user, tz)
-        await session.commit()
-        await achievement_service.check_achievements(
-            session, user.id, user, cb.bot, user.telegram_id, trigger="profile_updated"
-        )
-        await session.commit()
-        await session.refresh(user)
-
-        # Hard debug: confirm DB save
-        result = await session.execute(select(User.timezone).where(User.id == user.id))
-        saved_tz = result.scalar_one()
-        logger.info("DB CONFIRM timezone=%s user_id=%s", saved_tz, user.id)
-
+        user_id = user.id
         lang = user.language_code
-        current_tz = (user.timezone or "UTC").strip()
 
-    chat_id = cb.message.chat.id if cb.message else 0
-    if not chat_id:
-        await cb.answer()
-        return
+    # Atomic update — immediate commit
+    await user_service.update_user_timezone(user_id, tz)
 
-    # Delete old timezone screen (avoids edit_text on stale message)
-    try:
-        await cb.message.delete()
-    except Exception:
-        pass
+    # Re-fetch from DB (source of truth for keyboard)
+    async with sm() as session:
+        user = await user_service.get_by_telegram_id(session, tid)
+        active_tz = (user.timezone or "UTC").strip() if user else "UTC"
+        if user:
+            await achievement_service.check_achievements(
+                session, user.id, user, cb.bot, user.telegram_id, trigger="profile_updated"
+            )
+            await session.commit()
 
     await cb.answer(t(lang, "tz_updated"), show_alert=True)
 
-    # Confirmation message
-    await cb.bot.send_message(chat_id, t(lang, "tz_confirmation_message", tz=current_tz))
-
-    # Fresh timezone screen
-    await cb.bot.send_message(
-        chat_id,
-        t(lang, "tz_prompt"),
-        reply_markup=timezone_keyboard(current_tz, lang),
+    # Keyboard always from DB
+    await cb.message.edit_text(
+        t(lang, "tz_screen_title", tz=active_tz),
+        reply_markup=timezone_keyboard(active_tz, lang),
     )
+
+    await cb.message.answer(t(lang, "tz_confirmation_short"))
 
 
 @router.callback_query(lambda c: c.data == "settings_lang")

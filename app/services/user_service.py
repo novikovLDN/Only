@@ -63,7 +63,7 @@ async def update_language(session: AsyncSession, user: User, language_code: str)
 
 
 def _validate_iana_timezone(tz: str) -> str:
-    """Validate and return IANA timezone string. Returns 'UTC' if invalid."""
+    """Validate IANA timezone via ZoneInfo. Returns normalized string or 'UTC' if invalid."""
     tz = (tz or "UTC").strip()
     try:
         ZoneInfo(tz)
@@ -73,18 +73,18 @@ def _validate_iana_timezone(tz: str) -> str:
 
 
 async def update_timezone(session: AsyncSession, user: User, timezone: str) -> None:
-    """Update user timezone. Validates via ZoneInfo, falls back to UTC if invalid."""
+    """Update user timezone. IANA only. Falls back to UTC if invalid."""
     tz = _validate_iana_timezone(timezone)
     user.timezone = tz
     await session.flush()
 
 
-async def update_user_timezone_by_id(user_id: int, new_timezone: str) -> bool:
+async def update_user_timezone(user_id: int, new_tz: str) -> bool:
     """
-    Standalone update by user.id — for validation job.
-    Validates IANA, commits immediately. Returns True if updated.
+    Standalone update by user.id. Validates IANA, commits immediately.
+    Single source of truth for TZ changes.
     """
-    tz = _validate_iana_timezone(new_timezone)
+    tz = _validate_iana_timezone(new_tz)
     sm = get_session_maker()
     async with sm() as session:
         result = await session.execute(update(User).where(User.id == user_id).values(timezone=tz))
