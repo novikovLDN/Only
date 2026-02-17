@@ -12,6 +12,7 @@ TEXTS = {
         "btn_profile": "👤 Мой профиль",
         "btn_premium": "💎 Купить Premium",
         "btn_premium_extend": "💎 Продлить Premium",
+        "btn_game": "🎳 Игра",
         "btn_loyalty": "🌎 Программа лояльности",
         "btn_settings": "⚙️ Настройки",
         "btn_back": "⬅️ Назад",
@@ -163,6 +164,9 @@ TEXTS = {
         "ach_locked_prefix": "Целевое действие для достижения:",
         "ach_prev": "⬅️ Назад",
         "ach_next": "➡️ Далее",
+        "game_strike": "🎉 СТРАЙК!\n\nТы выбил все кегли 🎳\n\n💎 +3 дня Premium начислены!",
+        "game_no_strike": "😅 Почти!\n\nВ этот раз без страйка.\nПопробуй снова через 3 дня 🎳",
+        "game_cooldown": "⛔ Играть можно раз в 3 дня.\n\nПопробуй снова через: {days} дн. {hours} ч.",
     },
     "en": {
         "lang_prompt": "🌐 Choose interface language:",
@@ -175,6 +179,7 @@ TEXTS = {
         "btn_profile": "👤 My Profile",
         "btn_premium": "💎 Buy Premium",
         "btn_premium_extend": "💎 Extend Premium",
+        "btn_game": "🎳 Game",
         "btn_loyalty": "🌎 Loyalty Program",
         "btn_settings": "⚙️ Settings",
         "btn_back": "⬅️ Back",
@@ -326,6 +331,9 @@ TEXTS = {
         "ach_locked_prefix": "Requirement:",
         "ach_prev": "⬅️ Prev",
         "ach_next": "➡️ Next",
+        "game_strike": "🎉 STRIKE!\n\nYou knocked them all down 🎳\n\n💎 +3 days of Premium added!",
+        "game_no_strike": "😅 Almost!\n\nNo strike this time.\nTry again in 3 days 🎳",
+        "game_cooldown": "⛔ You can play once every 3 days.\n\nTry again in: {days} days {hours} hrs.",
     },
     "ar": {
         "lang_prompt": "🌐 اختر لغة الواجهة:",
@@ -338,6 +346,7 @@ TEXTS = {
         "btn_profile": "👤 ملفي الشخصي",
         "btn_premium": "💎 شراء Premium",
         "btn_premium_extend": "💎 تمديد Premium",
+        "btn_game": "🎳 لعبة",
         "btn_loyalty": "🌎 برنامج الولاء",
         "btn_settings": "⚙️ الإعدادات",
         "btn_back": "⬅️ رجوع",
@@ -490,6 +499,9 @@ TEXTS = {
         "ach_locked_prefix": "المطلوب:",
         "ach_prev": "⬅️ السابق",
         "ach_next": "➡️ التالي",
+        "game_strike": "🎉 ضربة كاملة!\n\nأسقطت جميع القوارير 🎳\n\n💎 تمت إضافة 3 أيام Premium!",
+        "game_no_strike": "😅 كاد!\n\nلا ضربة كاملة هذه المرة.\nحاول مرة أخرى بعد 3 أيام 🎳",
+        "game_cooldown": "⛔ يمكن اللعب مرة كل 3 أيام.\n\nحاول مرة أخرى بعد: {days} يوم {hours} ساعة",
     },
 }
 

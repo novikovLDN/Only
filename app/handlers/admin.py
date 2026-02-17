@@ -478,6 +478,26 @@ async def admin_revoke(cb: CallbackQuery) -> None:
     await cb.message.answer(t(lang, "admin_sub_revoked"))
 
 
+@router.callback_query(F.data.startswith("admin_delete_this:"))
+async def admin_delete_this_user(cb: CallbackQuery, state: FSMContext) -> None:
+    if not _is_admin(cb.from_user.id if cb.from_user else None):
+        await cb.answer(t("ru", "admin_denied"), show_alert=True)
+        return
+    await cb.answer()
+    tg_id = int(cb.data.split(":")[1])
+    tid = cb.from_user.id if cb.from_user else 0
+    sm = get_session_maker()
+    async with sm() as session:
+        admin_user = await user_service.get_by_telegram_id(session, tid)
+        lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
+    await state.update_data(admin_delete_tg_id=tg_id)
+    await state.set_state(AdminStates.delete_user_confirm)
+    await cb.message.edit_text(
+        t(lang, "admin_delete_confirm", tg_id=str(tg_id)),
+        reply_markup=admin_back_keyboard(lang),
+    )
+
+
 @router.callback_query(F.data == "admin_delete_user")
 async def admin_delete_user_start(cb: CallbackQuery, state: FSMContext) -> None:
     if not _is_admin(cb.from_user.id if cb.from_user else None):

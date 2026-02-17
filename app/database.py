@@ -60,9 +60,10 @@ async def init_db() -> None:
     engine = _get_engine()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    await _ensure_indexes(engine)
     await _migrate_crypto_columns(engine)
     await _migrate_discount_columns(engine)
+    await _migrate_game_columns(engine)
+    await _ensure_indexes(engine)
     from app.db_seed import seed_achievements
     await seed_achievements()
     logger.info("Database schema ensured")
@@ -74,6 +75,7 @@ async def _ensure_indexes(engine) -> None:
     indexes = [
         "CREATE INDEX IF NOT EXISTS idx_users_timezone ON users (timezone)",
         "CREATE INDEX IF NOT EXISTS idx_users_discount_until ON users (discount_until)",
+        "CREATE INDEX IF NOT EXISTS idx_users_last_game_at ON users (last_game_at)",
         "CREATE INDEX IF NOT EXISTS idx_payments_external_id ON payments (external_payment_id)",
         "CREATE INDEX IF NOT EXISTS idx_payments_crypto_network ON payments (crypto_network)",
     ]
@@ -113,6 +115,23 @@ async def _migrate_discount_columns(engine) -> None:
                 ))
             except Exception as e:
                 logger.warning("Migration payments.%s skipped: %s", name, e)
+
+
+async def _migrate_game_columns(engine) -> None:
+    """Add game columns if missing (idempotent)."""
+    from sqlalchemy import text
+    cols = [
+        ("last_game_at", "TIMESTAMP WITH TIME ZONE"),
+        ("game_wins", "INTEGER NOT NULL DEFAULT 0"),
+    ]
+    async with engine.begin() as conn:
+        for name, typ in cols:
+            try:
+                await conn.execute(text(
+                    f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {name} {typ}"
+                ))
+            except Exception as e:
+                logger.warning("Migration users.%s skipped: %s", name, e)
 
 
 async def _migrate_crypto_columns(engine) -> None:

@@ -18,6 +18,7 @@ from app.scheduler import setup_scheduler, shutdown_scheduler
 from app.handlers import (
     admin,
     commands,
+    game,
     habits_create,
     habits_edit,
     loyalty,
@@ -46,6 +47,7 @@ def _create_bot_and_dp() -> tuple[Bot, Dispatcher]:
     dp.include_router(main_menu.router)
     dp.include_router(habits_edit.router)
     dp.include_router(profile.router)
+    dp.include_router(game.router)
     dp.include_router(premium.router)
     dp.include_router(loyalty.router)
     dp.include_router(settings_handler.router)
@@ -74,6 +76,7 @@ async def main() -> None:
         BotCommand(command="edit", description="✏️ Редактировать привычки"),
         BotCommand(command="profile", description="👤 Мой профиль"),
         BotCommand(command="premium", description="💎 Купить Premium"),
+        BotCommand(command="game", description="🎳 Игра"),
         BotCommand(command="referral", description="🌎 Программа лояльности"),
         BotCommand(command="settings", description="⚙️ Настройки"),
     ])
