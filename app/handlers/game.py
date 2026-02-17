@@ -1,5 +1,6 @@
 """Bowling mini-game — dice 🎳, strike = +3 days Premium."""
 
+import asyncio
 from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot, Router, F
@@ -7,6 +8,7 @@ from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
 
 from app.db import get_session_maker
+from app.keyboards import main_menu
 from app.services import user_service
 from app.texts import t
 
@@ -72,10 +74,28 @@ async def _run_game(bot: Bot, chat_id: int, tid: int) -> None:
             else:
                 user.premium_until = now + timedelta(days=REWARD_DAYS)
             await session.commit()
+            await asyncio.sleep(2)
             await bot.send_message(chat_id, t(lang, "game_strike"))
+            await asyncio.sleep(4)
+            fname = user.first_name or "there"
+            is_premium = user_service.is_premium(user)
+            await bot.send_message(
+                chat_id,
+                t(lang, "main_greeting").format(name=fname),
+                reply_markup=main_menu(lang, is_premium),
+            )
         else:
             await session.commit()
+            await asyncio.sleep(2)
             await bot.send_message(chat_id, t(lang, "game_no_strike"))
+            await asyncio.sleep(4)
+            fname = user.first_name or "there"
+            is_premium = user_service.is_premium(user)
+            await bot.send_message(
+                chat_id,
+                t(lang, "main_greeting").format(name=fname),
+                reply_markup=main_menu(lang, is_premium),
+            )
 
 
 @router.message(F.text == "🎳")
