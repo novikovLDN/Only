@@ -1,13 +1,16 @@
 """Settings — language, timezone."""
 
+import logging
+
 from aiogram import Router
 from aiogram.types import CallbackQuery
 
 from app.db import get_session_maker
 from app.keyboards import main_menu, settings_menu, lang_select, timezone_full_keyboard, timezone_keyboard
-from app.services import achievement_service, user_service
+from app.services import achievement_service, user_service, timezone_service
 from app.texts import t
 
+logger = logging.getLogger(__name__)
 router = Router(name="settings")
 
 
@@ -81,22 +84,28 @@ async def cb_tz_set(cb: CallbackQuery) -> None:
     tz = (cb.data.split(":", 1)[1] if ":" in (cb.data or "") else "UTC").strip()
     tid = cb.from_user.id if cb.from_user else 0
 
+    if not timezone_service.validate_timezone(tz):
+        await cb.answer(t("ru", "tz_invalid"), show_alert=True)
+        return
+
     sm = get_session_maker()
     async with sm() as session:
         user = await user_service.get_by_telegram_id(session, tid)
-        if user:
-            await user_service.update_timezone(session, user, tz)
+        if not user:
+            await cb.answer()
+            return
+        await user_service.update_timezone(session, user, tz)
         await session.commit()
-        if user:
-            await achievement_service.check_achievements(
-                session, user.id, user, cb.bot, user.telegram_id, trigger="profile_updated"
-            )
-            await session.commit()
-        user = await user_service.get_by_telegram_id(session, tid)
-        lang = user.language_code if user else "en"
-        current_tz = (user.timezone if user else "UTC").strip()
+        await achievement_service.check_achievements(
+            session, user.id, user, cb.bot, user.telegram_id, trigger="profile_updated"
+        )
+        await session.commit()
+        await session.refresh(user)
+        logger.info("Timezone updated in DB: user_id=%s, tz=%s", user.id, user.timezone)
+        lang = user.language_code
+        current_tz = (user.timezone or "UTC").strip()
 
-    await cb.answer(t(lang, "tz_updated"))
+    await cb.answer(t(lang, "tz_updated"), show_alert=True)
     await cb.message.edit_text(t(lang, "tz_prompt"), reply_markup=timezone_keyboard(current_tz, lang))
 
 
