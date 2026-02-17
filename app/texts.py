@@ -2,7 +2,7 @@
 
 TEXTS = {
     "ru": {
-        "lang_prompt": "Выберите язык 🌍",
+        "lang_prompt": "🌐 Выберите язык интерфейса:",
         "tz_prompt": "Выберите часовой пояс ⏰",
         "main_greeting": "Привет, {name} 👋\n\nЯ рядом, чтобы помочь тебе формировать полезные привычки и мягко напоминать о них в нужное время.\n\nВыбери действие ниже 👇",
         "main_title": "Ваша панель привычек ✨",
@@ -58,9 +58,9 @@ TEXTS = {
         "premium_paywall": "Только Premium. Оформи подписку.",
         "premium_required_upsell": "🔒 Эта функция доступна только в Premium.\n\nОткрой все привычки и создавай свои без ограничений 💎",
         "premium_locked_alert": "Доступно только в Premium 💎",
-        "settings_tz": "Изменить часовой пояс",
-        "settings_lang": "Изменить язык",
-        "settings_menu": "Настройки",
+        "settings_tz": "🌍 Изменить часовой пояс",
+        "settings_lang": "🌐 Изменить язык",
+        "settings_menu": "⚙️ Настройки",
         "loyalty_title": "🌎 Программа лояльности\n\n🤝 Приглашай друзей и получай 🎁 +7 дней Premium\nза каждого, кто оплатит подписку 💎",
         "loyalty_link": "🔗 Твоя персональная ссылка:",
         "referral_bonus_notify": "🎉 Ваш друг купил Premium!\n\n🎁 Вам начислено +7 дней подписки!",
@@ -120,7 +120,7 @@ TEXTS = {
         "ach_next": "➡️ Далее",
     },
     "en": {
-        "lang_prompt": "Choose language 🌍",
+        "lang_prompt": "🌐 Choose interface language:",
         "tz_prompt": "Choose your timezone ⏰",
         "main_greeting": "Hi, {name} 👋\n\nI'm here to help you build good habits and gently remind you at the right time.\n\nChoose an action below 👇",
         "main_title": "Your habit dashboard ✨",
@@ -176,9 +176,9 @@ TEXTS = {
         "premium_paywall": "Premium only. Subscribe to unlock.",
         "premium_required_upsell": "🔒 This feature is available only in Premium.\n\nUnlock all habits and create your own without limits 💎",
         "premium_locked_alert": "Available only in Premium 💎",
-        "settings_tz": "Change timezone",
-        "settings_lang": "Change language",
-        "settings_menu": "Settings",
+        "settings_tz": "🌍 Change timezone",
+        "settings_lang": "🌐 Change language",
+        "settings_menu": "⚙️ Settings",
         "loyalty_title": "🌎 Loyalty Program\n\n🤝 Invite friends and get 🎁 +7 days of Premium\nfor each friend who purchases a subscription 💎",
         "loyalty_link": "🔗 Your personal link:",
         "referral_bonus_notify": "🎉 Your friend bought Premium!\n\n🎁 You received +7 days subscription!",

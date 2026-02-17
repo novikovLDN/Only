@@ -110,7 +110,7 @@ async def cb_settings_lang(cb: CallbackQuery) -> None:
         user = await user_service.get_by_telegram_id(session, tid)
         lang = user.language_code if user else "en"
 
-    await cb.message.edit_text(t(lang, "lang_prompt"), reply_markup=lang_select(next_step="done"))
+    await cb.message.edit_text(t(lang, "lang_prompt"), reply_markup=lang_select(next_step="done", lang=lang, back_callback="settings"))
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith("lang_") and "_done" in (c.data or ""))

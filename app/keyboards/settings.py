@@ -90,23 +90,16 @@ def timezone_full_keyboard(current_tz: str, page: int, lang: str) -> InlineKeybo
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-def lang_select(next_step: str = "tz") -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="🇷🇺 Русский",
-                    callback_data=f"lang_ru_{next_step}",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="🇬🇧 English",
-                    callback_data=f"lang_en_{next_step}",
-                )
-            ],
-        ]
-    )
+def lang_select(next_step: str = "tz", lang: str = "ru", back_callback: str | None = None) -> InlineKeyboardMarkup:
+    """Language selection. If back_callback is set, add Back button (e.g. for settings)."""
+    lang = "en" if (lang or "").lower() == "en" else "ru"
+    rows = [
+        [InlineKeyboardButton(text="🇷🇺 Русский", callback_data=f"lang_ru_{next_step}")],
+        [InlineKeyboardButton(text="🇬🇧 English", callback_data=f"lang_en_{next_step}")],
+    ]
+    if back_callback:
+        rows.append([InlineKeyboardButton(text=t(lang, "btn_back"), callback_data=back_callback)])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def tz_select(lang: str, prefix: str = "tz_") -> InlineKeyboardMarkup:
