@@ -1,4 +1,4 @@
-"""Start and onboarding — lang, tz, referral."""
+"""Start and onboarding — lang, tz, referral, tutorial, trial."""
 
 import logging
 
@@ -10,6 +10,7 @@ from aiogram.types import CallbackQuery, Message
 from app.db import get_session_maker
 from app.keyboards import lang_select, main_menu, tz_select
 from app.services import achievement_service, referral_service, user_service
+from app.services.trial_service import grant_trial_if_eligible
 from app.texts import t
 from app.utils.safe_edit import safe_edit_or_send
 
@@ -39,10 +40,8 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
     ref_id = None
     parts = (message.text or "").split(maxsplit=1)
     if len(parts) > 1 and parts[1].startswith("ref_"):
-        try:
-            ref_id = int(parts[1][4:])
-        except ValueError:
-            pass
+        from app.utils.referral_token import verify_referral_code
+        ref_id = verify_referral_code(parts[1].strip())
 
     sm = get_session_maker()
     async with sm() as session:
@@ -61,6 +60,22 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
                     session, referrer.id, referrer, message.bot, referrer.telegram_id, trigger="friend_invited"
                 )
                 await session.commit()
+
+        # Grant trial premium for new users
+        if created:
+            trial_granted = await grant_trial_if_eligible(session, user)
+            await session.commit()
+
+            # Onboarding tutorial for new users
+            await message.answer(t("ru", "onboarding_step1"))
+            await message.answer(t("ru", "onboarding_step2"))
+            await message.answer(t("ru", "onboarding_step3"), reply_markup=lang_select(next_step="tz"))
+
+            if trial_granted:
+                from app.config import settings
+                await message.answer(t("ru", "trial_granted", days=settings.trial_days))
+            return
+
         if not created:
             await achievement_service.check_achievements(
                 session, user.id, user, message.bot, user.telegram_id, trigger="user_returns"
@@ -68,7 +83,7 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
             await session.commit()
         lang = user.language_code
         is_premium = user_service.is_premium(user)
-        if created or user.language_code not in ("ru", "en", "ar"):
+        if user.language_code not in ("ru", "en", "ar"):
             await message.answer(t("ru", "lang_prompt"), reply_markup=lang_select(next_step="tz"))
             return
     await message.answer(
@@ -131,6 +146,29 @@ async def cb_tz(cb: CallbackQuery) -> None:
     await cb.message.edit_text(
         t(lang, "main_greeting").format(name=fname or "there"),
         reply_markup=main_menu(lang, is_premium),
+    )
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("tz_page:"))
+async def cb_tz_page(cb: CallbackQuery) -> None:
+    """Handle timezone pagination."""
+    await cb.answer()
+    parts = (cb.data or "").split(":")
+    if len(parts) < 3:
+        return
+    callback_prefix = parts[1]
+    page = int(parts[2])
+    tid = cb.from_user.id if cb.from_user else 0
+
+    sm = get_session_maker()
+    async with sm() as session:
+        user = await user_service.get_by_telegram_id(session, tid)
+        lang = user.language_code if user else "ru"
+        active_tz = user.timezone if user else "Europe/Moscow"
+
+    from app.keyboards.settings import timezone_keyboard
+    await cb.message.edit_reply_markup(
+        reply_markup=timezone_keyboard(active_tz, lang, callback_prefix, page),
     )
 
 

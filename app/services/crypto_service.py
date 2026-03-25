@@ -156,8 +156,10 @@ async def create_crypto_payment(
 
 
 def _rub_to_usd(price_rub: float) -> float:
-    """Approximate RUB->USD. Adjust or use live rate later."""
-    return round(price_rub / 100, 2)
+    """Convert RUB to USD using configurable rate from settings."""
+    from app.config import settings
+    rate = settings.rub_usd_rate or 100.0
+    return round(price_rub / rate, 2)
 
 
 async def process_crypto_webhook(

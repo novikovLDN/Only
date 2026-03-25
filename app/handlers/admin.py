@@ -11,7 +11,7 @@ from sqlalchemy import func, select, update
 
 from app.config import ADMIN_ID
 from app.db import get_session_maker
-from app.services import admin_service, user_service
+from app.services import admin_service, audit_service, user_service
 from app.texts import _normalize_lang, t
 from app.keyboards.admin import (
     admin_back_keyboard,
@@ -227,6 +227,10 @@ async def admin_apply_grant(message: Message, state: FSMContext) -> None:
                 user.premium_until = now + duration
         else:
             user.premium_until = now + duration
+        await audit_service.log_admin_action(
+            session, tid, "grant_premium", target_user_id=tg_id,
+            details=f"duration={message.text}",
+        )
         await session.commit()
     await message.answer(t(lang, "admin_grant_ok"))
     await state.clear()
@@ -443,6 +447,10 @@ async def admin_discount_confirm(cb: CallbackQuery, state: FSMContext) -> None:
         if admin_user:
             from app.services.discount_service import grant_discount
             await grant_discount(session, target_user.id, percent, days, admin_user.id)
+            await audit_service.log_admin_action(
+                session, tid, "grant_discount", target_user_id=tg_id,
+                details=f"percent={percent} days={days}",
+            )
             await session.commit()
             try:
                 from datetime import datetime, timezone, timedelta
@@ -472,6 +480,7 @@ async def admin_revoke(cb: CallbackQuery) -> None:
         await session.execute(
             update(User).where(User.telegram_id == tg_id).values(premium_until=None)
         )
+        await audit_service.log_admin_action(session, tid, "revoke_premium", target_user_id=tg_id)
         await session.commit()
         admin_user = await user_service.get_by_telegram_id(session, tid)
         lang = _normalize_lang(admin_user.language_code) if admin_user else "ru"
@@ -564,6 +573,10 @@ async def admin_delete_user_execute(message: Message, state: FSMContext) -> None
 
     success = await admin_service.delete_user_full_by_tg_id(tg_id)
     if success:
+        sm = get_session_maker()
+        async with sm() as session:
+            await audit_service.log_admin_action(session, tid, "delete_user", target_user_id=tg_id)
+            await session.commit()
         await message.answer(t(lang, "admin_delete_done"))
     else:
         await message.answer(t(lang, "admin_delete_not_found"))

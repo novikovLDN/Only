@@ -21,6 +21,10 @@ def _get_engine():
             settings.database_url,
             echo=False,
             pool_pre_ping=True,
+            pool_size=10,
+            max_overflow=20,
+            pool_timeout=30,
+            pool_recycle=1800,
         )
     return _engine
 
@@ -63,6 +67,9 @@ async def init_db() -> None:
     await _migrate_crypto_columns(engine)
     await _migrate_discount_columns(engine)
     await _migrate_game_columns(engine)
+    await _migrate_audit_columns(engine)
+    await _migrate_trial_columns(engine)
+    await _migrate_streak_recovery_columns(engine)
     await _ensure_indexes(engine)
     from app.db_seed import seed_achievements
     await seed_achievements()
@@ -78,6 +85,8 @@ async def _ensure_indexes(engine) -> None:
         "CREATE INDEX IF NOT EXISTS idx_users_last_game_at ON users (last_game_at)",
         "CREATE INDEX IF NOT EXISTS idx_payments_external_id ON payments (external_payment_id)",
         "CREATE INDEX IF NOT EXISTS idx_payments_crypto_network ON payments (crypto_network)",
+        "CREATE INDEX IF NOT EXISTS idx_users_premium_until ON users (premium_until)",
+        "CREATE INDEX IF NOT EXISTS idx_admin_audit_log_admin_id ON admin_audit_log (admin_id)",
     ]
     async with engine.begin() as conn:
         for sql in indexes:
@@ -151,6 +160,55 @@ async def _migrate_crypto_columns(engine) -> None:
                 ))
             except Exception as e:
                 logger.warning("Migration column %s skipped: %s", name, e)
+
+
+async def _migrate_audit_columns(engine) -> None:
+    """Create admin_audit_log table if not exists."""
+    from sqlalchemy import text
+    sql = """
+    CREATE TABLE IF NOT EXISTS admin_audit_log (
+        id BIGSERIAL PRIMARY KEY,
+        admin_id BIGINT NOT NULL,
+        action VARCHAR(100) NOT NULL,
+        target_user_id BIGINT,
+        details TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    )
+    """
+    async with engine.begin() as conn:
+        try:
+            await conn.execute(text(sql))
+        except Exception as e:
+            logger.warning("Migration admin_audit_log skipped: %s", e)
+
+
+async def _migrate_trial_columns(engine) -> None:
+    """Add trial_used column to users."""
+    from sqlalchemy import text
+    async with engine.begin() as conn:
+        try:
+            await conn.execute(text(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_used BOOLEAN NOT NULL DEFAULT FALSE"
+            ))
+        except Exception as e:
+            logger.warning("Migration users.trial_used skipped: %s", e)
+
+
+async def _migrate_streak_recovery_columns(engine) -> None:
+    """Add streak recovery columns to users."""
+    from sqlalchemy import text
+    cols = [
+        ("streak_recoveries_used", "INTEGER NOT NULL DEFAULT 0"),
+        ("last_streak_recovery_at", "TIMESTAMP WITH TIME ZONE"),
+    ]
+    async with engine.begin() as conn:
+        for name, typ in cols:
+            try:
+                await conn.execute(text(
+                    f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {name} {typ}"
+                ))
+            except Exception as e:
+                logger.warning("Migration users.%s skipped: %s", name, e)
 
 
 async def close_db() -> None:
