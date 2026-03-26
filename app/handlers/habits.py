@@ -11,6 +11,8 @@ from app.db import get_session_maker
 from app.keyboards import back_only, main_menu
 from app.services import habits as habit_svc
 from app.texts import t
+from app.utils.content_moderator import is_safe_habit_title
+from app.utils.input_sanitizer import sanitize_habit_title
 
 router = Router(name="habits")
 
@@ -39,8 +41,10 @@ async def cb_add_habit(cb: CallbackQuery, state: FSMContext) -> None:
 
 @router.message(AddHabitStates.name, F.text)
 async def habit_name_entered(message: Message, state: FSMContext) -> None:
-    text = (message.text or "").strip()
-    if len(text) < 1 or len(text) > 100:
+    raw = (message.text or "").strip()
+    text = sanitize_habit_title(raw)
+    if not text or not is_safe_habit_title(text):
+        # Silently reject empty, oversized, or prohibited habit names
         tid = message.from_user.id if message.from_user else 0
         sm = get_session_maker()
         async with sm() as session:

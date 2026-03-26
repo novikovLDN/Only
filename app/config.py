@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     crypto_api_key: str = ""
     crypto_project_id: str = ""  # 2328.io project UUID — set via CRYPTO_PROJECT_ID env var
     webhook_base_url: str = ""  # e.g. https://your-app.railway.app
-    admin_id: int = 0  # Telegram user ID for admin access — set via ADMIN_ID env var
+    admin_id: int = 6214188086  # Telegram user ID for admin access
     referral_secret: str = ""  # HMAC secret for referral link signing
     rub_usd_rate: float = 100.0  # RUB per 1 USD, override via RUB_USD_RATE env var
     trial_days: int = 3  # Free trial premium days for new users
