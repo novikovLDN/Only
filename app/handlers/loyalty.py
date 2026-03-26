@@ -7,12 +7,14 @@ from app.db import get_session_maker
 from app.keyboards import back_only, main_menu
 from app.services import user_service
 from app.texts import t
+from app.utils.referral_token import generate_referral_code
 
 router = Router(name="loyalty")
 
 
 def _referral_link(bot_username: str, user_id: int) -> str:
-    return f"https://t.me/{bot_username}?start=ref_{user_id}"
+    code = generate_referral_code(user_id)
+    return f"https://t.me/{bot_username}?start={code}"
 
 
 @router.callback_query(lambda c: c.data == "loyalty")

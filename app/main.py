@@ -14,6 +14,7 @@ from aiogram.types import BotCommand
 from app.config import settings
 from app.database import close_db, init_db
 from app.logger import setup_logging
+from app.middlewares.content_filter import ContentFilterMiddleware
 from app.middlewares.rate_limit import RateLimitMiddleware
 from app.scheduler import setup_scheduler, shutdown_scheduler
 
@@ -47,9 +48,10 @@ def _create_bot_and_dp() -> tuple[Bot, Dispatcher]:
     )
     dp = Dispatcher(storage=MemoryStorage())
 
-    # Register rate limiting middleware first
+    # Register middlewares: rate limit first, then content filter
     dp.message.middleware(RateLimitMiddleware())
     dp.callback_query.middleware(RateLimitMiddleware())
+    dp.message.middleware(ContentFilterMiddleware())
 
     dp.include_router(admin.router)
     dp.include_router(commands.router)

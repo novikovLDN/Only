@@ -13,6 +13,8 @@ from app.core.habit_presets import get_preset_title
 from app.keyboards.habits import build_presets_keyboard, weekdays_keyboard, time_keyboard, confirm_keyboard
 from app.services import achievement_service, habit_service, user_service
 from app.texts import t
+from app.utils.content_moderator import is_safe_habit_title
+from app.utils.input_sanitizer import sanitize_habit_title
 
 router = Router(name="habits_create")
 
@@ -272,8 +274,12 @@ async def cb_confirm_ok(cb: CallbackQuery, state: FSMContext) -> None:
 
 @router.message(CreateHabitStates.custom_title, F.text)
 async def habit_custom_title(message: Message, state: FSMContext) -> None:
-    title = (message.text or "").strip()[:100]
+    raw = (message.text or "").strip()
+    title = sanitize_habit_title(raw)
     if not title:
+        return
+    if not is_safe_habit_title(title):
+        # Silently ignore prohibited habit names
         return
     await state.update_data(habit_title=title)
     await state.set_state(CreateHabitStates.days)
