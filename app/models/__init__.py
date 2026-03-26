@@ -1,6 +1,7 @@
 """Models — single export surface."""
 
 from app.models.achievement import Achievement, UserAchievement
+from app.models.admin_audit_log import AdminAuditLog
 from app.models.user_metrics import UserMetrics
 from app.models.base import Base
 from app.models.habit import Habit
@@ -13,6 +14,7 @@ from app.models.user import User
 
 __all__ = [
     "Achievement",
+    "AdminAuditLog",
     "UserAchievement",
     "UserMetrics",
     "Base",

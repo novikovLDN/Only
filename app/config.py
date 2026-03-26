@@ -21,8 +21,12 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/habitbot"
     payment_provider_token: str = ""  # YooKassa LIVE token from @BotFather → Payments
     crypto_api_key: str = ""
-    crypto_project_id: str = "8f7c14f1-2473-4652-9f7a-5c04693b40af"
+    crypto_project_id: str = ""  # 2328.io project UUID — set via CRYPTO_PROJECT_ID env var
     webhook_base_url: str = ""  # e.g. https://your-app.railway.app
+    admin_id: int = 0  # Telegram user ID for admin access — set via ADMIN_ID env var
+    referral_secret: str = ""  # HMAC secret for referral link signing
+    rub_usd_rate: float = 100.0  # RUB per 1 USD, override via RUB_USD_RATE env var
+    trial_days: int = 3  # Free trial premium days for new users
 
     @field_validator("database_url", mode="before")
     @classmethod
@@ -44,4 +48,4 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
-ADMIN_ID = 6214188086
+ADMIN_ID = settings.admin_id

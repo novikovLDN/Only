@@ -27,6 +27,9 @@ class User(Base):
     discount_created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_game_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     game_wins: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    trial_used: Mapped[bool] = mapped_column(nullable=False, default=False, server_default="false")
+    streak_recoveries_used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_streak_recovery_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), onupdate=func.now())
 

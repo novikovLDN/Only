@@ -61,11 +61,25 @@ async def update_language(session: AsyncSession, user: User, language_code: str)
     await session.flush()
 
 
-ALLOWED_TIMEZONES = {"Europe/Moscow", "Europe/London", "America/New_York", "Asia/Dubai"}
+ALLOWED_TIMEZONES = {
+    # Europe
+    "Europe/Moscow", "Europe/London", "Europe/Berlin", "Europe/Paris",
+    "Europe/Rome", "Europe/Madrid", "Europe/Warsaw", "Europe/Istanbul",
+    "Europe/Kiev", "Europe/Bucharest", "Europe/Athens",
+    # Asia
+    "Asia/Dubai", "Asia/Almaty", "Asia/Tashkent", "Asia/Kolkata",
+    "Asia/Bangkok", "Asia/Singapore", "Asia/Shanghai", "Asia/Tokyo",
+    "Asia/Seoul", "Asia/Novosibirsk", "Asia/Vladivostok", "Asia/Tbilisi",
+    # Americas
+    "America/New_York", "America/Chicago", "America/Denver",
+    "America/Los_Angeles", "America/Sao_Paulo", "America/Toronto",
+    # Other
+    "Australia/Sydney", "Pacific/Auckland", "Africa/Cairo", "UTC",
+}
 
 
 def _validate_iana_timezone(tz: str) -> str:
-    """Only 4 TZ allowed. Returns Europe/Moscow if invalid."""
+    """Validate timezone against allowed set. Returns Europe/Moscow if invalid."""
     tz = (tz or "Europe/Moscow").strip()
     return tz if tz in ALLOWED_TIMEZONES else "Europe/Moscow"
 

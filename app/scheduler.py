@@ -50,10 +50,6 @@ async def run_reminders(bot) -> None:
                 user_tz = ZoneInfo("Europe/Moscow")
 
             now_local = now_utc.astimezone(user_tz)
-            logger.debug(
-                "TZ DEBUG: user_id=%s tz=%s now_local=%s",
-                user.id, user.timezone, now_local,
-            )
             weekday = now_local.weekday()
             current_time = now_local.time().replace(second=0, microsecond=0)
             today = now_local.date()
@@ -74,7 +70,23 @@ async def run_reminders(bot) -> None:
 
             try:
                 time_str = ht.time.strftime("%H:%M") if hasattr(ht.time, "strftime") else str(ht.time)
-                text = t(lang, "notification_format", title=habit.title, time=time_str)
+
+                # Build reminder text with streak progress
+                streak_text = ""
+                try:
+                    async with sm() as session:
+                        streak = await habit_log_service.get_max_streak(session, user.id)
+                        if streak > 0:
+                            filled = min(10, streak)
+                            bar = "🔥" * min(filled, 10) + "⬜" * max(0, 10 - filled)
+                            streak_text = f"\n{bar} {streak} days"
+                except Exception:
+                    pass
+
+                text = t(lang, "notification_format", title=habit.title, time=time_str) + streak_text
+                if phrase:
+                    text += f"\n\n💬 {phrase}"
+
                 await bot.send_message(
                     chat_id=user.telegram_id,
                     text=text,
@@ -136,6 +148,93 @@ async def expire_crypto_payments(bot) -> None:
         logger.exception("Expire crypto payments failed: %s", e)
 
 
+async def check_premium_expiry(bot) -> None:
+    """Daily: notify users whose premium expires in 3 days or 1 day."""
+    from datetime import timedelta
+    try:
+        sm = get_session_maker()
+        now = datetime.now(timezone.utc)
+        async with sm() as session:
+            for days_ahead in (3, 1):
+                window_start = now + timedelta(days=days_ahead - 1, hours=23)
+                window_end = now + timedelta(days=days_ahead, hours=1)
+                result = await session.execute(
+                    select(User).where(
+                        User.premium_until.isnot(None),
+                        User.premium_until > window_start,
+                        User.premium_until < window_end,
+                    )
+                )
+                users = result.scalars().all()
+                for user in users:
+                    try:
+                        lang = user.language_code if user.language_code in ("ru", "en", "ar") else "ru"
+                        text_key = "premium_expiry_3d" if days_ahead == 3 else "premium_expiry_1d"
+                        await bot.send_message(
+                            chat_id=user.telegram_id,
+                            text=t(lang, text_key),
+                        )
+                    except Exception as e:
+                        logger.warning("Premium expiry notify failed user=%s: %s", user.telegram_id, e)
+        logger.info("Premium expiry check completed")
+    except Exception as e:
+        logger.exception("Premium expiry check failed: %s", e)
+
+
+async def send_weekly_report(bot) -> None:
+    """Weekly (Monday 09:00 UTC): send habit completion report to all users."""
+    from datetime import timedelta
+    from sqlalchemy import func
+    from app.models import HabitLog
+    try:
+        sm = get_session_maker()
+        now = datetime.now(timezone.utc)
+        week_start = (now - timedelta(days=7)).date()
+
+        async with sm() as session:
+            users_result = await session.execute(select(User))
+            users = users_result.scalars().all()
+
+            for user in users:
+                try:
+                    # Count done and skipped for the week
+                    done_count = await session.scalar(
+                        select(func.count()).select_from(HabitLog).where(
+                            HabitLog.user_id == user.id,
+                            HabitLog.status == "done",
+                            HabitLog.log_date >= week_start,
+                        )
+                    ) or 0
+                    skip_count = await session.scalar(
+                        select(func.count()).select_from(HabitLog).where(
+                            HabitLog.user_id == user.id,
+                            HabitLog.status == "skip",
+                            HabitLog.log_date >= week_start,
+                        )
+                    ) or 0
+
+                    total = done_count + skip_count
+                    if total == 0:
+                        continue  # Skip inactive users
+
+                    pct = int((done_count / total) * 100) if total > 0 else 0
+                    filled = min(10, pct // 10)
+                    bar = "🟩" * filled + "⬜" * (10 - filled)
+
+                    lang = user.language_code if user.language_code in ("ru", "en", "ar") else "ru"
+                    text = t(lang, "weekly_report",
+                             done=done_count, skip=skip_count,
+                             pct=pct, bar=bar)
+
+                    await bot.send_message(chat_id=user.telegram_id, text=text)
+                except Exception as e:
+                    logger.warning("Weekly report failed user=%s: %s", user.telegram_id, e)
+
+        logger.info("Weekly reports sent")
+    except Exception as e:
+        logger.exception("Weekly report job failed: %s", e)
+
+
 def setup_scheduler(bot) -> None:
     sched = get_scheduler()
     sched.add_job(
@@ -161,8 +260,22 @@ def setup_scheduler(bot) -> None:
         id="daily_metrics_recalc",
         replace_existing=True,
     )
+    sched.add_job(
+        check_premium_expiry,
+        trigger=CronTrigger(hour=10, minute=0),
+        args=(bot,),
+        id="premium_expiry_check",
+        replace_existing=True,
+    )
+    sched.add_job(
+        send_weekly_report,
+        trigger=CronTrigger(day_of_week="mon", hour=9, minute=0),
+        args=(bot,),
+        id="weekly_report",
+        replace_existing=True,
+    )
     sched.start()
-    logger.info("Scheduler started")
+    logger.info("Scheduler started with %d jobs", len(sched.get_jobs()))
 
 
 def shutdown_scheduler() -> None:
